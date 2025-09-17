@@ -1,3 +1,6 @@
+#!/usr/env/bin Python 3
+#-*- coding: utf-8 -*-
+"""
 # app.py
 import os
 import re
@@ -160,3 +163,4 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 5000)),
         debug=True
     )
+
