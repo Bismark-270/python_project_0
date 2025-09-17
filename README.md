@@ -1,7 +1,10 @@
 This project was made possible thanks to the dedication and teamwork of the following people:
-1. Name: Mensah Emmanuel Ankomah 
+1. Name: Mensah Emmanuel Ankomah
+   
 ID: 01245278B
+
 GitHub Name: EmmanuelAnkomah
+
 
 2  Name: Aboagye Emmanuel
     ID: 01246874B
@@ -80,3 +83,4 @@ Database server (PostgreSQL / MongoDB)
 
 
 Browser (Chrome, Firefox, or Edge)
+
