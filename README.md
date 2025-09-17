@@ -1,6 +1,7 @@
 Akwaaba Tickets 🎟️
 
 1.Project Title
+
 Akwaaba Tickets – Event Ticketing System
 
 2.Students Information
@@ -90,6 +91,7 @@ Database server (PostgreSQL / MongoDB)
 
 
 Browser (Chrome, Firefox, or Edge)
+
 
 
 
