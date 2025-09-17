@@ -1,23 +1,23 @@
 This project was made possible thanks to the dedication and teamwork of the following people:
-1. Name: Mensah Emmanuel Ankomah
-   
-ID: 01245278B
-
-GitHub Name: EmmanuelAnkomah
-
+1. Name: Mensah Emmanuel Ankomah 
+    ID: 01245278B
+    GitHub Name: EmmanuelAnkomah
 
 2  Name: Aboagye Emmanuel
     ID: 01246874B
     GitHub name: Aboagyeemmanuel_1 (040912aeo)
+
 3.Name:Amenyo Lambertha 
     ID:01245103B
     GitHub name:lamb08
+
 4.Name: Kingsford Kyei Mensah Odei
-ID: 01245157B
-GitHub Name: theboyromeo1
+    ID: 01245157B
+    GitHub Name: theboyromeo1
+
 5. Name :Bismark Adotey 
-         ID : 01240195B
-         GitHub Name : Bismark-270
+     ID : 01240195B
+     GitHub Name : Bismark-270
 
  Introduction
 
@@ -83,4 +83,5 @@ Database server (PostgreSQL / MongoDB)
 
 
 Browser (Chrome, Firefox, or Edge)
+
 
