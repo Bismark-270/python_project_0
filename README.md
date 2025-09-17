@@ -1,3 +1,10 @@
+Akwaaba Tickets 🎟️
+
+1.Project Title
+Akwaaba Tickets – Event Ticketing System
+
+2.Students Information
+
 This project was made possible thanks to the dedication and teamwork of the following people:
 1. Name: Mensah Emmanuel Ankomah 
     ID: 01245278B
@@ -19,7 +26,7 @@ This project was made possible thanks to the dedication and teamwork of the foll
      ID : 01240195B
      GitHub Name : Bismark-270
 
- Introduction
+ 3.Introduction
 
 Akwaaba Tickets is a web-based ticketing platform that provides a seamless way for event organizers to create, manage, and sell tickets, while allowing attendees to easily browse and purchase event tickets. The system is designed to improve accessibility, reduce manual processes, and provide a secure and modern solution for event management in Ghana and beyond.
 
@@ -83,5 +90,6 @@ Database server (PostgreSQL / MongoDB)
 
 
 Browser (Chrome, Firefox, or Edge)
+
 
 
