@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Organizer — Events</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+      <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#16A34A; --brand-600:#14823c; --brand-700:#0f6a31;
+      --ink:#0b1b2b; --muted:#6b7280; --card:#ffffff; --border:#e5e7eb;
+    }
+    body{
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(22,163,74,.18), transparent 60%),
+        linear-gradient(180deg, rgba(22,163,74,.08), #ffffff 35%);
+      color: var(--ink);
+    }
+    .page-wrap{ padding:2rem 1rem; }
+    .card { border: 1px solid var(--border); border-radius: 1rem; box-shadow: 0 12px 32px rgba(2,6,23,.06); }
+    .btn-brand{
+      --bs-btn-bg: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-600); --bs-btn-hover-border-color: var(--brand-600);
+      --bs-btn-active-bg: var(--brand-700); --bs-btn-active-border-color: var(--brand-700);
+      color:#fff;
+    }
+    .table thead th{ white-space: nowrap; }
+    .table tbody tr:hover{ background: #f9fffb; }
+    .status-badge{ font-weight: 600; }
+    .status-upcoming{ background:#e8fff0; color:#0f6a31; border:1px solid #c9f1d7; }
+    .status-past{ background:#f4f7fa; color:#374151; border:1px solid #e5e7eb; }
+    .status-draft{ background:#fff8e6; color:#92400e; border:1px solid #fde68a; }
+    .empty{ border: 2px dashed var(--border); border-radius: 1rem; padding: 3rem 1rem; background: #fff; text-align:center; }
+    .pagination .page-link{ color: var(--brand-700); }
+    .pagination .active .page-link{ background: var(--brand); border-color: var(--brand); color:#fff; }
+    .hover-raise:hover{ transform: translateY(-1px); box-shadow: 0 10px 30px rgba(2,6,23,.08); }
+
+    /* Media thumbs */
+    .thumbs { display:flex; gap:.35rem; align-items:center; }
+    .thumb {
+      width: 44px; height: 44px; border-radius:.5rem; overflow:hidden;
+      border:1px solid var(--border); position:relative; background:#f8fafc;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+    }
+    .thumb img { width:100%; height:100%; object-fit:cover; }
+    .thumb.more::after{
+      content: attr(data-more);
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background: rgba(0,0,0,.45); color:#fff; font-weight:600; font-size:.85rem;
+    }
+
+    /* Gallery modal */
+    .carousel-item img { width:100%; height:60vh; object-fit:contain; background:#000; }
+    @media (max-width: 576px){ .carousel-item img { height: 45vh; } }
+
+    /* Share modal */
+    .share-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:.75rem;
+    }
+    @media (min-width:768px){ .share-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    .share-btn{
+      display:flex; align-items:center; gap:.5rem; width:100%;
+      border:1px solid var(--border); border-radius:.75rem; padding:.6rem .75rem;
+      background:#fff; text-decoration:none; color:inherit;
+    }
+    .share-btn:hover{ background:#f8fafc; }
+    .share-icon{ width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; }
+    .qr-wrap{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .qr-box{ border:1px solid var(--border); border-radius:.75rem; padding:.75rem; background:#fff; }
+    .copy-input{ font-size:.9rem; }
+  </style>
+</head>
+<body>
+  {% include "_sidebar.html" %}
+
+  <div class="page-wrap container-xxl">
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+      <h1 class="h4 mb-0">Events</h1>
+      <a class="btn btn-brand hover-raise" href="{{ url_for('organizer.events_new') }}">
+        <i class="bi bi-plus-lg me-1"></i> New Event
+      </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <form class="row g-2" method="get" action="{{ url_for('organizer.events_list') }}">
+          <div class="col-12 col-md-6 col-lg-5">
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input type="search" class="form-control" name="q" placeholder="Search by title…" value="{{ q or '' }}" />
+            </div>
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <select class="form-select" name="status" aria-label="Filter by status">
+              {% set s=status or 'all' %}
+              <option value="all"       {{ 'selected' if s=='all' }}>All statuses</option>
+              <option value="draft"     {{ 'selected' if s=='draft' }}>Draft</option>
+              <option value="published" {{ 'selected' if s=='published' }}>Published</option>
+              <option value="upcoming"  {{ 'selected' if s=='upcoming' }}>Upcoming</option>
+              <option value="past"      {{ 'selected' if s=='past' }}>Past</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3 col-lg-2">
+            <select class="form-select" name="per_page" aria-label="Rows per page">
+              {% for n in [10,20,30,50] %}
+              <option value="{{n}}" {{ 'selected' if per_page==n }}>{{n}} / page</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12 col-lg-3 d-grid d-md-flex justify-content-md-end">
+            <a class="btn btn-outline-secondary me-md-2" href="{{ url_for('organizer.events_list') }}">Reset</a>
+            <button class="btn btn-brand"><i class="bi bi-funnel me-1"></i> Apply</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-body">
+        {% if total == 0 %}
+          <div class="empty">
+            <div class="mb-2"><i class="bi bi-calendar2-event" style="font-size:2.5rem;color:var(--brand);"></i></div>
+            <p class="lead mb-2">No events yet</p>
+            <p class="text-muted mb-3">Create your first event to start selling tickets.</p>
+            <a class="btn btn-brand" href="{{ url_for('organizer.events_new') }}"><i class="bi bi-plus-lg me-1"></i> Create Event</a>
+          </div>
+        {% else %}
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Media</th>
+                  <th>Title</th>
+                  <th>Date &amp; Time</th>
+                  <th>Location</th>
+                  <th>Sold / Supply</th>
+                  <th>Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ev in events %}
+                {% set imgs = (ev.images or []) %}
+                {% set when_txt = (ev.starts_at.strftime("%a, %b %d, %Y %I:%M %p") if ev.starts_at and ev.starts_at.__class__.__name__=='datetime' else ev.starts_at) %}
+                {% set share_url = ev.public_url
+                                   or (request.url_root.rstrip('/') ~ '/events/' ~ (ev.slug or ev.id)) %}
+                {% set share_text = 'Join me at ' ~ (ev.title or 'this event') ~ ((' on ' ~ when_txt) if when_txt else '') ~ ' – get tickets here:' %}
+                <tr>
+                  <td>
+                    {% if imgs and imgs|length > 0 %}
+                      <div class="thumbs">
+                        {% for img in imgs[:3] %}
+                          <div class="thumb"
+                               role="button"
+                               title="Open gallery"
+                               data-bs-toggle="modal"
+                               data-bs-target="#galModal-{{ ev.id }}"
+                               data-start-index="{{ loop.index0 }}">
+                            <img src="{{ url_for('organizer.media', filename=img) }}" alt="event image {{ loop.index }}" loading="lazy">
+                          </div>
+                        {% endfor %}
+                        {% if imgs|length > 3 %}
+                          <div class="thumb more"
+                               role="button"
+                               data-more="{{ '+' ~ (imgs|length - 3) }}"
+                               title="Open gallery"
+                               data-bs-toggle="modal"
+                               data-bs-target="#galModal-{{ ev.id }}"
+                               data-start-index="3">
+                            <img src="{{ url_for('organizer.media', filename=imgs[3]) }}" alt="event image more" loading="lazy">
+                          </div>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="fw-semibold">{{ ev.title }}</td>
+                  <td>
+                    {% if ev.starts_at %}
+                      {{ when_txt }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if ev.location and ev.location.type == 'online' %}
+                      <i class="bi bi-wifi me-1"></i> Online
+                    {% else %}
+                      <i class="bi bi-geo-alt me-1"></i> {{ ev.location.venue_name if ev.location else 'Venue' }}
+                    {% endif %}
+                  </td>
+                  <td><span class="fw-semibold">{{ ev.sold or 0 }}</span> <span class="text-muted">/ {{ ev.supply or 0 }}</span></td>
+                  <td>
+                    {% set st = (ev.derived_status or 'Draft').lower() %}
+                    <span class="badge status-badge
+                      {% if st=='upcoming' %} status-upcoming
+                      {% elif st=='past' %} status-past
+                      {% else %} status-draft {% endif %}">
+                      {{ ev.derived_status }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <div class="btn-group" role="group" aria-label="Actions">
+                      <!-- VIEW -->
+                      <button class="btn btn-sm btn-outline-secondary"
+                              title="View details"
+                              data-bs-toggle="modal"
+                              data-bs-target="#viewModal-{{ ev.id }}">
+                        <i class="bi bi-eye"></i>
+                      </button>
+
+                      <a class="btn btn-sm btn-outline-secondary" href="/organizer/events/{{ ev.id }}/edit" title="Edit"><i class="bi bi-pencil"></i></a>
+
+                      {% if imgs and imgs|length > 0 %}
+                      <button class="btn btn-sm btn-outline-secondary"
+                        title="Gallery"
+                        data-bs-toggle="modal"
+                        data-bs-target="#galModal-{{ ev.id }}"
+                        data-start-index="0">
+                        <i class="bi bi-images"></i>
+                      </button>
+                      {% endif %}
+
+                      <!-- SHARE -->
+                      <button class="btn btn-sm btn-outline-secondary"
+                        title="Share"
+                        data-bs-toggle="modal"
+                        data-bs-target="#shareModal"
+                        data-share-title="{{ ev.title }}"
+                        data-share-url="{{ share_url }}"
+                        data-share-text="{{ share_text }}">
+                        <i class="bi bi-share"></i>
+                      </button>
+
+                      <!-- DUPLICATE -->
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+                        data-bs-target="#dupModal" data-event-id="{{ ev.id }}" data-event-title="{{ ev.title }}"
+                        title="Duplicate">
+                        <i class="bi bi-files"></i>
+                      </button>
+
+                      <!-- DELETE -->
+                      <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                        data-bs-target="#delModal" data-event-id="{{ ev.id }}" data-event-title="{{ ev.title }}"
+                        title="Delete">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if pages > 1 %}
+          <nav aria-label="Events pages">
+            <ul class="pagination justify-content-center mt-3">
+              <li class="page-item {{ 'disabled' if page<=1 }}">
+                <a class="page-link" href="{{ url_for('organizer.events_list', q=q, status=status, per_page=per_page, page=page-1) }}" aria-label="Previous">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
+              </li>
+              {% for p in range(1, pages+1) %}
+              <li class="page-item {{ 'active' if p==page }}"><a class="page-link" href="{{ url_for('organizer.events_list', q=q, status=status, per_page=per_page, page=p) }}">{{ p }}</a></li>
+              {% endfor %}
+              <li class="page-item {{ 'disabled' if page>=pages }}">
+                <a class="page-link" href="{{ url_for('organizer.events_list', q=q, status=status, per_page=per_page, page=page+1) }}" aria-label="Next">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Per-event Details Modal (VIEW) -->
+  {% for ev in events %}
+  <div class="modal fade" id="viewModal-{{ ev.id }}" tabindex="-1" aria-labelledby="viewLabel-{{ ev.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewLabel-{{ ev.id }}">{{ ev.title }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Top: when & where -->
+          <div class="d-flex flex-wrap gap-3 mb-3">
+            <div><i class="bi bi-calendar-event me-1"></i>
+              {% if ev.starts_at %}
+                {{ ev.starts_at.strftime("%a, %b %d, %Y %I:%M %p") if ev.starts_at.__class__.__name__=='datetime' else ev.starts_at }}
+              {% else %} TBA {% endif %}
+            </div>
+            <div class="text-muted">•</div>
+            <div>
+              {% if ev.location and ev.location.type == 'online' %}
+                <i class="bi bi-wifi me-1"></i> Online
+              {% else %}
+                <i class="bi bi-geo-alt me-1"></i>
+                {{ ev.location.venue_name if ev.location else 'Venue' }}
+                {% if ev.location and ev.location.address %}, {{ ev.location.address }}{% endif %}
+                {% if ev.location and ev.location.city %}, {{ ev.location.city }}{% endif %}
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Description -->
+          {% if ev.description %}
+          <p class="mb-3">{{ ev.description }}</p>
+          {% endif %}
+
+          <!-- Tiers -->
+          {% set tiers = ev.tiers or [] %}
+          {% if tiers %}
+          <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle">
+              <thead class="table-light">
+                <tr><th>Tier</th><th class="text-end">Price (USDC)</th><th class="text-end">Supply</th></tr>
+              </thead>
+              <tbody>
+                {% for t in tiers %}
+                <tr>
+                  <td>{{ t.name or ('Tier ' ~ loop.index) }}</td>
+                  <td class="text-end">{{ ('%.2f' % (t.price or 0.0)) if t.price is not none else '0.00' }}</td>
+                  <td class="text-end">{{ t.supply or 0 }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+
+          <!-- Gallery (inline small) -->
+          {% set imgs = ev.images or [] %}
+          {% if imgs %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for img in imgs[:6] %}
+            <div class="border rounded" style="width:90px;height:90px;overflow:hidden">
+              <img src="{{ url_for('organizer.media', filename=img) }}" alt="image {{ loop.index }}" style="width:100%;height:100%;object-fit:cover">
+            </div>
+            {% endfor %}
+            {% if imgs|length > 6 %}
+            <div class="d-flex align-items-center ms-2 text-muted">+{{ imgs|length - 6 }} more</div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="modal-footer">
+          <small class="text-muted me-auto">
+            Status: {{ ev.derived_status }} • Sold {{ ev.sold or 0 }}/{{ ev.supply or 0 }}
+          </small>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Per-event Gallery Modals -->
+  {% for ev in events %}
+    {% set imgs = (ev.images or []) %}
+    {% if imgs and imgs|length > 0 %}
+    <div class="modal fade" id="galModal-{{ ev.id }}" tabindex="-1" aria-labelledby="galLabel-{{ ev.id }}" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="galLabel-{{ ev.id }}">{{ ev.title }} — Gallery</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-0 bg-black">
+            <div id="carousel-{{ ev.id }}" class="carousel slide" data-bs-ride="false">
+              <div class="carousel-inner">
+                {% for img in imgs %}
+                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                  <img src="{{ url_for('organizer.media', filename=img) }}" alt="event image {{ loop.index }}" class="d-block w-100">
+                </div>
+                {% endfor %}
+              </div>
+              <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ ev.id }}" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+              </button>
+              <button class="carousel-control-next" type="button" data-bs-target="#carousel-{{ ev.id }}" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+              </button>
+              <div class="carousel-indicators m-0 p-3 bg-black bg-opacity-50">
+                {% for img in imgs %}
+                <button type="button" data-bs-target="#carousel-{{ ev.id }}" data-bs-slide-to="{{ loop.index0 }}" class="{% if loop.first %}active{% endif %}" aria-label="Slide {{ loop.index }}"></button>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer justify-content-between">
+            <small class="text-muted">{{ imgs|length }} image{{ 's' if imgs|length>1 }}</small>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  <!-- SHARE MODAL (single, re-used) -->
+  <div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title" id="shareLabel">Share event</h5>
+            <div class="text-muted" id="shareSubtitle"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="share-grid mb-3">
+            <a id="shareWhatsApp" class="share-btn" target="_blank" rel="noopener">
+              <span class="share-icon"><i class="bi bi-whatsapp"></i></span>
+              <span>WhatsApp</span>
+            </a>
+            <a id="shareTelegram" class="share-btn" target="_blank" rel="noopener">
+              <span class="share-icon"><i class="bi bi-telegram"></i></span>
+              <span>Telegram</span>
+            </a>
+            <a id="shareFacebook" class="share-btn" target="_blank" rel="noopener">
+              <span class="share-icon"><i class="bi bi-facebook"></i></span>
+              <span>Facebook</span>
+            </a>
+            <a id="shareTwitter" class="share-btn" target="_blank" rel="noopener">
+              <span class="share-icon"><i class="bi bi-twitter-x"></i></span>
+              <span>X (Twitter)</span>
+            </a>
+            <a id="shareEmail" class="share-btn">
+              <span class="share-icon"><i class="bi bi-envelope"></i></span>
+              <span>Email</span>
+            </a>
+            <button id="shareNative" type="button" class="share-btn">
+              <span class="share-icon"><i class="bi bi-share"></i></span>
+              <span>Share…</span>
+            </button>
+          </div>
+
+          <div class="qr-wrap">
+            <div class="flex-grow-1">
+              <label class="form-label">Shareable link</label>
+              <div class="input-group">
+                <input id="shareLink" class="form-control copy-input" type="url" readonly>
+                <button class="btn btn-outline-secondary" id="copyLinkBtn"><i class="bi bi-clipboard"></i> Copy</button>
+              </div>
+              <small class="text-muted">Copy the link or scan the QR code to open on another device.</small>
+            </div>
+            <div class="qr-box">
+              <canvas id="qrCanvas" width="140" height="140" aria-label="QR code"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicate Modal -->
+  <div class="modal fade" id="dupModal" tabindex="-1" aria-labelledby="dupLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" class="modal-content" id="dupForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="dupLabel">Duplicate Event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">Create a draft copy of <strong id="dupTitle"></strong>?</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-brand" type="submit"><i class="bi bi-files me-1"></i> Duplicate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Modal -->
+  <div class="modal fade" id="delModal" tabindex="-1" aria-labelledby="delLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" class="modal-content" id="delForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="delLabel">Delete Event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">This will permanently remove <strong id="delTitle"></strong>. This action cannot be undone.</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" type="submit"><i class="bi bi-trash me-1"></i> Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Lightweight QR generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script>
+    // Helper: show toast
+    function showToast(msg, variant='success'){
+      const wrap = document.querySelector('.toast-container');
+      const el = document.createElement('div');
+      el.className = `toast align-items-center text-bg-${variant} border-0 mb-2`;
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      el.setAttribute('aria-atomic', 'true');
+      el.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${msg}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>`;
+      wrap.appendChild(el);
+      new bootstrap.Toast(el, { delay: 3500 }).show();
+    }
+
+    // Duplicate modal
+    var dupModal = document.getElementById('dupModal');
+    if (dupModal) {
+      dupModal.addEventListener('show.bs.modal', function(ev){
+        var btn = ev.relatedTarget;
+        var id = btn.getAttribute('data-event-id');
+        var title = btn.getAttribute('data-event-title');
+        document.getElementById('dupTitle').textContent = title || 'this event';
+        document.getElementById('dupForm').action = '/organizer/events/' + id + '/duplicate';
+      });
+    }
+
+    // Delete modal
+    var delModal = document.getElementById('delModal');
+    if (delModal) {
+      delModal.addEventListener('show.bs.modal', function(ev){
+        var btn = ev.relatedTarget;
+        var id = btn.getAttribute('data-event-id');
+        var title = btn.getAttribute('data-event-title');
+        document.getElementById('delTitle').textContent = title || 'this event';
+        document.getElementById('delForm').action = '/organizer/events/' + id + '/delete';
+      });
+    }
+
+    // Open gallery at a specific index
+    document.addEventListener('click', function(e){
+      var target = e.target.closest('[data-bs-target^="#galModal-"][data-start-index]');
+      if (!target) return;
+      var modalId = target.getAttribute('data-bs-target');
+      var start = parseInt(target.getAttribute('data-start-index') || '0', 10);
+      var modalEl = document.querySelector(modalId);
+      if (!modalEl) return;
+      var setOnShow = function(){
+        var carouselEl = modalEl.querySelector('.carousel');
+        var carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, { interval: 0, ride: false, keyboard: true, pause: true });
+        carousel.to(start);
+      };
+      modalEl.addEventListener('shown.bs.modal', setOnShow, { once: true });
+    });
+
+    // SHARE modal logic
+    const shareModal = document.getElementById('shareModal');
+    const shareSubtitle = document.getElementById('shareSubtitle');
+    const shareLink = document.getElementById('shareLink');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    const btnWhatsApp = document.getElementById('shareWhatsApp');
+    const btnTelegram = document.getElementById('shareTelegram');
+    const btnFacebook = document.getElementById('shareFacebook');
+    const btnTwitter = document.getElementById('shareTwitter');
+    const btnEmail = document.getElementById('shareEmail');
+    const btnNative = document.getElementById('shareNative');
+    const qrCanvas = document.getElementById('qrCanvas');
+
+    if (shareModal){
+      shareModal.addEventListener('show.bs.modal', function (ev){
+        const trigger = ev.relatedTarget;
+        const title = trigger?.getAttribute('data-share-title') || 'Event';
+        const url   = trigger?.getAttribute('data-share-url') || window.location.href;
+        const text  = trigger?.getAttribute('data-share-text') || 'Check this out:';
+
+        shareSubtitle.textContent = title;
+        shareLink.value = url;
+
+        const enc = encodeURIComponent;
+        const waText = `${text} ${url}`;
+        // Use wa.me (preferred), api.whatsapp.com as fallback on desktops
+        btnWhatsApp.href = `https://wa.me/?text=${enc(waText)}`;
+        btnWhatsApp.onclick = function(){
+          // try native whatsapp:// on mobile if available
+          const mobileHref = `whatsapp://send?text=${enc(waText)}`;
+          if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            window.location.href = mobileHref;
+            return false;
+          }
+        };
+
+        btnTelegram.href = `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`;
+        btnFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`;
+        btnTwitter.href  = `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`;
+        btnEmail.href    = `mailto:?subject=${enc(title)}&body=${enc(text)}%0A%0A${enc(url)}`;
+
+        // Native Web Share (if supported)
+        btnNative.disabled = !('share' in navigator);
+        btnNative.title = btnNative.disabled ? 'Sharing not supported on this device' : 'Share';
+        btnNative.onclick = async () => {
+          if (!navigator.share) return;
+          try{
+            await navigator.share({ title, text, url });
+          }catch(e){ /* user cancelled */ }
+        };
+
+        // QR
+        const ctx = qrCanvas.getContext('2d');
+        ctx.clearRect(0,0,qrCanvas.width,qrCanvas.height);
+        QRCode.toCanvas(qrCanvas, url, { width: 140, margin: 1 });
+
+        // Copy button
+        copyLinkBtn.onclick = async () => {
+          try{
+            await navigator.clipboard.writeText(url);
+            showToast('Link copied to clipboard.', 'success');
+          }catch(e){
+            // Fallback
+            shareLink.select();
+            document.execCommand('copy');
+            showToast('Link copied.', 'success');
+          }
+        };
+      });
+    }
+  </script>
+
+  <script>
+    window.cbConfig = { chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e" };
+  </script>
+  <script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

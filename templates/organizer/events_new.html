@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Organizer — New Event</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+      <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{ --brand:#16A34A; --brand-600:#14823c; --brand-700:#0f6a31; --ink:#0b1b2b; --muted:#6b7280; --card:#ffffff; --border:#e5e7eb; }
+    body{
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(22,163,74,.18), transparent 60%),
+        linear-gradient(180deg, rgba(22,163,74,.08), #ffffff 35%);
+      color: var(--ink);
+    }
+    .page-wrap{ padding:2rem 1rem; }
+    .card{ border:1px solid var(--border); border-radius:1rem; box-shadow:0 12px 32px rgba(2,6,23,.06); }
+    .btn-brand{
+      --bs-btn-bg: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-600); --bs-btn-hover-border-color: var(--brand-600);
+      --bs-btn-active-bg: var(--brand-700); --bs-btn-active-border-color: var(--brand-700);
+      color:#fff;
+    }
+    .btn-ghost{ border:1px dashed var(--border); background:#fff; }
+    .tier-card{ border:1px solid var(--border); border-radius:.75rem; padding:1rem; background:#fff; }
+    .tier-card:hover{ box-shadow:0 10px 28px rgba(2,6,23,.06); }
+    .form-text{ color: var(--muted); }
+    .toast-container{ z-index:1080; }
+
+    /* image preview grid */
+    .thumb-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:.5rem; }
+    .thumb{
+      position:relative; border:1px solid var(--border); border-radius:.5rem; overflow:hidden;
+      aspect-ratio:1/1; background:#f8fafc; display:flex; align-items:center; justify-content:center;
+    }
+    .thumb img{ width:100%; height:100%; object-fit:cover; }
+    .thumb .remove{
+      position:absolute; top:6px; right:6px; background:#fff; border:1px solid var(--border);
+      border-radius:.375rem; padding:.1rem .35rem; line-height:1; cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+    {% include "_sidebar.html" %}
+
+  <div class="page-wrap container-xxl">
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+      <h1 class="h4 mb-0">Create Event</h1>
+      <a class="btn btn-outline-secondary" href="{{ url_for('organizer.events_list') }}"><i class="bi bi-arrow-left me-1"></i> Back to Events</a>
+    </div>
+
+    <!-- Flash as alerts (validation) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="mb-3">
+        {% for category, msg in messages %}
+          <div class="alert alert-{{ category }} mb-2" role="alert">{{ msg }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- JSON payload for tiers (no JS parsing errors in editor) -->
+    <script id="initialTiers" type="application/json">
+      {{ (form.tiers_json if form and form.tiers_json else '[]') | safe }}
+    </script>
+
+    <!-- IMPORTANT: enctype for file uploads -->
+    <form id="eventForm" method="post" action="{{ url_for('organizer.events_new') }}" enctype="multipart/form-data" novalidate>
+      <input type="hidden" name="tiers_json" id="tiers_json" />
+      <input type="hidden" name="action" id="action" value="draft" />
+
+      <div class="row g-4">
+        <!-- Left column -->
+        <div class="col-12 col-lg-7">
+          <div class="card mb-4">
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label fw-semibold" for="title">Event Title</label>
+                <input class="form-control" id="title" name="title" placeholder="e.g., Akwaaba Music Night" required value="{{ form.title if form else '' }}">
+                <div class="form-text">A clear, short title works best.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold" for="description">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="6" placeholder="Describe the experience, lineup, schedule…" required>{{ form.description if form else '' }}</textarea>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold" for="start_datetime">Date &amp; Time</label>
+                <input type="datetime-local" class="form-control" id="start_datetime" name="start_datetime" required value="{{ form.start_datetime if form else '' }}">
+              </div>
+
+              <!-- Location -->
+              {% set lt = (form.location_type if form else 'venue') %}
+              <div class="mb-3">
+                <label class="form-label fw-semibold d-block">Location</label>
+                <div class="d-flex gap-3 flex-wrap">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="location_type" id="locVenue" value="venue" {{ 'checked' if lt != 'online' }}>
+                    <label class="form-check-label" for="locVenue">Venue</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="location_type" id="locOnline" value="online" {{ 'checked' if lt == 'online' }}>
+                    <label class="form-check-label" for="locOnline">Online</label>
+                  </div>
+                </div>
+              </div>
+
+              <div id="venueFields" class="mb-3">
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label" for="venue_name">Venue Name</label>
+                    <input class="form-control" id="venue_name" name="venue_name" placeholder="e.g., Accra Arena" value="{{ form.location.venue_name if form and form.location else '' }}">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="venue_city">City</label>
+                    <input class="form-control" id="venue_city" name="venue_city" placeholder="e.g., Accra" value="{{ form.location.city if form and form.location else '' }}">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="venue_address">Address</label>
+                    <input class="form-control" id="venue_address" name="venue_address" placeholder="Street, area" value="{{ form.location.address if form and form.location else '' }}">
+                  </div>
+                </div>
+              </div>
+
+              <div id="onlineFields" class="mb-3" hidden>
+                <label class="form-label" for="online_url">Event Link</label>
+                <input class="form-control" id="online_url" name="online_url" placeholder="https://… (Zoom/YouTube/custom)" value="{{ form.location.online_url if form and form.location else '' }}">
+              </div>
+            </div>
+          </div>
+
+          <!-- EVENT MEDIA: multiple images -->
+          <div class="card">
+            <div class="card-body">
+              <h2 class="h6 mb-2">Event Media</h2>
+              <p class="text-muted mb-2">Upload as many images as you like for the event gallery.</p>
+              <div class="mb-3">
+                <label for="event_images" class="form-label">Event Images</label>
+                <input class="form-control" type="file" id="event_images" name="event_images[]" accept="image/*" multiple>
+                <div class="form-text">Recommended: JPG/PNG/WebP, &le; 3MB each.</div>
+              </div>
+              <div id="eventGalleryPreview" class="thumb-grid" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="col-12 col-lg-5">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <h2 class="h6 mb-0">Ticket Tiers</h2>
+                <button class="btn btn-sm btn-brand" type="button" id="addTier"><i class="bi bi-plus-lg me-1"></i>Add Tier</button>
+              </div>
+              <p class="text-muted mb-3">Create one or more ticket options (e.g., General, VIP). Each tier can have a cover image and an optional gallery.</p>
+
+              <div id="tiersWrap" class="d-flex flex-column gap-2">
+                <!-- Tier cards injected here -->
+              </div>
+
+              <div class="mt-3">
+                <button type="button" class="btn btn-ghost w-100" id="addTierGhost">
+                  <i class="bi bi-plus-lg me-1"></i> Add another ticket tier
+                </button>>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button class="btn btn-outline-secondary" type="button" id="saveDraftBtn"><i class="bi bi-save me-1"></i>Save Draft</button>
+            <button class="btn btn-brand" type="button" id="publishBtn"><i class="bi bi-rocket-takeoff me-1"></i>Publish</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Publish Confirm Modal -->
+  <div class="modal fade" id="pubModal" tabindex="-1" aria-labelledby="pubLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="pubLabel">Publish Event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Ready to publish this event? You can still edit details later.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-brand" id="confirmPublish"><i class="bi bi-rocket-takeoff me-1"></i> Publish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ---------- Location toggle ----------
+    function syncLocationUI(){
+      const online = document.getElementById('locOnline').checked;
+      const venueFields = document.getElementById('venueFields');
+      const onlineFields = document.getElementById('onlineFields');
+      if (venueFields) venueFields.hidden = online;
+      if (onlineFields) onlineFields.hidden = !online;
+    }
+    document.getElementById('locVenue')?.addEventListener('change', syncLocationUI);
+    document.getElementById('locOnline')?.addEventListener('change', syncLocationUI);
+    syncLocationUI();
+
+    // ---------- Utility: image previews ----------
+    function previewFiles(inputEl, previewWrap, allowRemove = false) {
+      if (!inputEl || !previewWrap) return;
+      previewWrap.innerHTML = '';
+      const files = Array.from(inputEl.files || []);
+      files.forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        const box = document.createElement('div');
+        box.className = 'thumb';
+        box.innerHTML = '<img alt="preview">';
+        box.querySelector('img').src = url;
+        if (allowRemove) {
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'remove';
+          rm.innerHTML = '<i class="bi bi-x"></i>';
+          rm.addEventListener('click', () => {
+            // Remove one file from a multiple input by rebuilding FileList
+            const dt = new DataTransfer();
+            Array.from(inputEl.files).forEach((f, i) => { if (i !== idx) dt.items.add(f); });
+            inputEl.files = dt.files;
+            previewFiles(inputEl, previewWrap, allowRemove);
+          });
+          box.appendChild(rm);
+        }
+        previewWrap.appendChild(box);
+      });
+    }
+
+    // ---------- Event gallery previews ----------
+    const eventImagesInput = document.getElementById('event_images');
+    const eventGalleryPreview = document.getElementById('eventGalleryPreview');
+    eventImagesInput?.addEventListener('change', () => previewFiles(eventImagesInput, eventGalleryPreview, true));
+
+    // ---------- Ticket tiers logic ----------
+    const tiersWrap = document.getElementById('tiersWrap');
+
+    function tierTemplate(idx){
+      return `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong>Tier <span class="tier-index">${idx+1}</span></strong>
+          <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Remove tier"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label" for="tier_name_${idx}">Name</label>
+            <input class="form-control" id="tier_name_${idx}" placeholder="e.g., General Admission">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="tier_price_${idx}">Price (USDC)</label>
+            <input class="form-control" type="number" step="0.01" min="0" id="tier_price_${idx}" placeholder="0.00">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="tier_supply_${idx}">Supply</label>
+            <input class="form-control" type="number" step="1" min="0" id="tier_supply_${idx}" placeholder="100">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="tier_limit_${idx}">Per‑order limit</label>
+            <input class="form-control" type="number" step="1" min="0" id="tier_limit_${idx}" placeholder="4">
+          </div>
+          <div class="col-6">
+            <label class="form-label d-block">Refundable</label>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="tier_ref_${idx}">
+              <label class="form-check-label" for="tier_ref_${idx}">Allow refunds</label>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="tier_start_${idx}">Sales start</label>
+            <input class="form-control" type="datetime-local" id="tier_start_${idx}">
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="tier_end_${idx}">Sales end</label>
+            <input class="form-control" type="datetime-local" id="tier_end_${idx}">
+          </div>
+
+          <!-- Tier Images -->
+          <div class="col-12 mt-2">
+            <div class="border-top pt-2"></div>
+            <label class="form-label fw-semibold">Tier Images</label>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="tier_cover_${idx}">Cover Image (single)</label>
+            <input class="form-control tier-cover" type="file" id="tier_cover_${idx}" name="tier_cover_${idx}" accept="image/*">
+            <div class="form-text">Shown as the main image for this ticket tier.</div>
+            <div class="thumb-grid mt-2" id="tier_cover_prev_${idx}"></div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="tier_gallery_${idx}">Gallery Images (multiple)</label>
+            <input class="form-control tier-gallery" type="file" id="tier_gallery_${idx}" name="tier_gallery_${idx}[]" accept="image/*" multiple>
+            <div class="form-text">Optional additional images. Saved in <code>/uploads</code>.</div>
+            <div class="thumb-grid mt-2" id="tier_gallery_prev_${idx}"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function addTier(){
+      const idx = tiersWrap.children.length;
+      const el = document.createElement('div');
+      el.className = 'tier-card';
+      el.innerHTML = tierTemplate(idx);
+
+      // remove tier
+      el.querySelector('.btn-outline-danger').addEventListener('click', () => {
+        el.remove();
+        // re-index labels visually
+        [...tiersWrap.querySelectorAll('.tier-index')].forEach((n, i) => n.textContent = i+1);
+      });
+
+      // previews for tier images
+      const coverInput = el.querySelector(`#tier_cover_${idx}`);
+      const coverPrev  = el.querySelector(`#tier_cover_prev_${idx}`);
+      const galInput   = el.querySelector(`#tier_gallery_${idx}`);
+      const galPrev    = el.querySelector(`#tier_gallery_prev_${idx}`);
+
+      coverInput?.addEventListener('change', () => previewFiles(coverInput, coverPrev, true));
+      galInput?.addEventListener('change', () => previewFiles(galInput, galPrev, true));
+
+      tiersWrap.appendChild(el);
+    }
+
+    document.getElementById('addTier')?.addEventListener('click', addTier);
+    document.getElementById('addTierGhost')?.addEventListener('click', addTier);
+
+    // Prefill tiers from <script type="application/json">
+    (function prefill(){
+      const node = document.getElementById('initialTiers');
+      if (!node) return;
+      let initial = [];
+      try {
+        const raw = node.textContent.trim();
+        if (raw) initial = JSON.parse(raw);
+      } catch(e) {
+        initial = [];
+      }
+      if (!Array.isArray(initial)) return;
+      initial.forEach(() => addTier());
+      const cards = [...tiersWrap.children];
+      initial.forEach((t, i) => {
+        const card = cards[i];
+        if (!card) return;
+        card.querySelector(`#tier_name_${i}`).value   = t.name || '';
+        card.querySelector(`#tier_price_${i}`).value  = (t.price ?? '');
+        card.querySelector(`#tier_supply_${i}`).value = (t.supply ?? '');
+        card.querySelector(`#tier_limit_${i}`).value  = (t.per_order_limit ?? '');
+        card.querySelector(`#tier_ref_${i}`).checked  = !!t.refundable;
+        if (t.sales_start) card.querySelector(`#tier_start_${i}`).value = String(t.sales_start).replace(' ', 'T').slice(0,16);
+        if (t.sales_end)   card.querySelector(`#tier_end_${i}`).value   = String(t.sales_end).replace(' ', 'T').slice(0,16);
+      });
+    })();
+
+    // Gather tiers into hidden JSON (files are NOT included here)
+    function collectTiers(){
+      const data = [];
+      [...tiersWrap.children].forEach((card, i) => {
+        data.push({
+          name: card.querySelector(`#tier_name_${i}`).value,
+          price: card.querySelector(`#tier_price_${i}`).value,
+          supply: card.querySelector(`#tier_supply_${i}`).value,
+          per_order_limit: card.querySelector(`#tier_limit_${i}`).value,
+          refundable: card.querySelector(`#tier_ref_${i}`).checked,
+          sales_start: card.querySelector(`#tier_start_${i}`).value,
+          sales_end: card.querySelector(`#tier_end_${i}`).value,
+          // images are posted as: tier_cover_i, tier_gallery_i[]
+        });
+      });
+      document.getElementById('tiers_json').value = JSON.stringify(data);
+    }
+
+    // Buttons behavior
+    const formEl = document.getElementById('eventForm');
+    document.getElementById('saveDraftBtn')?.addEventListener('click', () => {
+      document.getElementById('action').value = 'draft';
+      collectTiers();
+      formEl.submit();
+    });
+    const pubModal = new bootstrap.Modal(document.getElementById('pubModal'));
+    document.getElementById('publishBtn')?.addEventListener('click', () => {
+      pubModal.show();
+    });
+    document.getElementById('confirmPublish')?.addEventListener('click', () => {
+      document.getElementById('action').value = 'publish';
+      collectTiers();
+      pubModal.hide();
+      formEl.submit();
+    });
+  </script>
+  <script>
+  window.cbConfig = {
+    chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e"
+  };
+</script>
+<script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

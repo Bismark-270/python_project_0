@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title or "Attendee Dashboard" }} — AkwaabaTickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#16A34A; --brand-600:#12823a; --ink:#0b1b2b;
+      --line:#e5e7eb; --muted:#64748b; --card:#fff; --surface:#f8fafc;
+    }
+    html,body{background:var(--surface); color:var(--ink);}
+    .cardish{ border:1px solid var(--line); border-radius:18px; background:var(--card); box-shadow:0 10px 30px rgba(2,6,23,.06); }
+    .muted{ color:var(--muted); }
+
+    /* Top strip */
+    .scroll-row{ overflow:auto; display:flex; gap:1rem; scroll-snap-type:x mandatory; padding-bottom:.25rem; }
+    .event-card{ min-width:260px; max-width:280px; scroll-snap-align:start; border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow:0 6px 18px rgba(2,6,23,.05); }
+    .event-card .cover{ height:140px; border-top-left-radius:16px; border-top-right-radius:16px; object-fit:cover; width:100%; }
+    .event-card .body{ padding:.85rem 1rem; }
+    .pill{ display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem; padding:.25rem .5rem; border-radius:999px; background:#eef6f0; color:#0f5132; border:1px solid #cbead5; }
+
+    /* KPI stats */
+    .stat{ border:1px solid var(--line); border-radius:16px; background:#fff; padding:16px; position:relative; overflow:hidden; }
+    .stat .label{ font-size:.85rem; color:var(--muted); }
+    .stat .value{ font-weight:700; font-size:1.4rem; }
+    .spark{ position:absolute; right:8px; bottom:8px; width:74px; height:28px; opacity:.9; }
+
+    /* Filters & table */
+    .filters .form-control, .filters .form-select{ border-radius:10px; }
+    .filters .btn{ border-radius:10px; }
+    .table-wrap{ border-radius:16px; overflow:hidden; }
+    .table thead th{ position:sticky; top:0; background:#f9fafb; z-index:2; }
+    .table-hover tbody tr:hover{ background:rgba(22,163,74,.05); }
+    .status-badge{ font-size:.75rem; }
+    .overflow-actions .dropdown-menu { border-radius:12px; }
+
+    /* Recent attendance */
+    .attendance-list{ max-height:360px; overflow:auto; }
+    .attendance-list .list-group-item{ border-left:0; border-right:0; }
+
+    @media (max-width: 576px){
+      .event-card{ min-width:220px; }
+    }
+  </style>
+</head>
+<body>
+  {% include "attendee_sidebar.html" %}
+
+  <main class="container my-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-3">
+          {% for category, msg in messages %}
+            <div class="alert alert-{{ 'success' if category=='success' else ('warning' if category=='warning' else 'danger') }} mb-2" role="alert">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+      <div>
+        <h1 class="h4 mb-0">Welcome, {{ name }}</h1>
+        <div class="muted small">Your tickets & attendance</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ url_for('public.browse_events') }}" class="btn btn-outline-success">
+          <i class="bi bi-search"></i> Find Events
+        </a>
+      </div>
+    </div>
+
+    {# =================== PRE-CALC (JINJA-SAFE) =================== #}
+    {# Build "my_top": count by (title|when|where|url|total) #}
+    {% set my_counts = {} %}
+    {% for t in tickets %}
+      {% set key = (t.title or '') ~ '||' ~ (t.when or '') ~ '||' ~ (t.where or '') ~ '||' ~ (t.url or '') ~ '||' ~ (t.total or '') %}
+      {% set _ = my_counts.update({key: (my_counts.get(key, 0) + 1)}) %}
+    {% endfor %}
+    {% set my_items = [] %}
+    {% for key, cnt in my_counts.items() %}
+      {% set parts = key.split('||') %}
+      {% set _ = my_items.append({'title': parts[0], 'when': parts[1], 'where': parts[2], 'url': parts[3], 'price': parts[4], 'count': cnt}) %}
+    {% endfor %}
+    {% set my_items_sorted = my_items|sort(attribute='count', reverse=True) %}
+
+    {# KPI months + spark points #}
+    {% set month_order = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+    {% set monthly_counts = {} %}
+    {% for m in month_order %}{% set _ = monthly_counts.update({m: 0}) %}{% endfor %}
+    {% for t in tickets %}
+      {% set parts = (t.when or '').split(', ') %}
+      {% if parts|length >= 2 %}
+        {% set m = parts[1].split(' ')[0] %}
+        {% if m in monthly_counts %}
+          {% set _ = monthly_counts.update({m: monthly_counts[m] + 1}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% set spark_points = [] %}
+    {% for m in month_order %}{% set _ = spark_points.append(monthly_counts[m]) %}{% endfor %}
+
+    {# Build unique maps for tier/venue filter dropdowns #}
+    {% set tier_map = {} %}
+    {% set venue_map = {} %}
+    {% for t in tickets %}
+      {% if t.tier %}{% set _ = tier_map.update({ (t.tier|lower): t.tier }) %}{% endif %}
+      {% if t.where %}{% set _ = venue_map.update({ (t.where|lower): t.where }) %}{% endif %}
+    {% endfor %}
+
+    <!-- =================== TOP EVENTS STRIP =================== -->
+    <section class="mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0">Top Events</h2>
+        <div class="muted small">Your most registered & trending</div>
+      </div>
+
+      <!-- Your Top -->
+      <div class="cardish p-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold"><i class="bi bi-star-fill text-warning me-1"></i> Your Top</div>
+          <div class="muted small">Scroll</div>
+        </div>
+        <div class="scroll-row">
+          {% if my_items_sorted %}
+            {% for it in my_items_sorted %}
+              {% if loop.index0 < 10 %}
+                <div class="event-card">
+                  <img class="cover" src="https://images.unsplash.com/photo-1472653816316-3ad6f10a6592?q=80&w=1600&auto=format&fit=crop" alt="">
+                  <div class="body">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="pill"><i class="bi bi-people"></i> {{ it.count }}</span>
+                      <span class="pill"><i class="bi bi-tag"></i> USDC {{ it.price }}</span>
+                    </div>
+                    <div class="fw-semibold text-truncate" title="{{ it.title }}">{{ it.title }}</div>
+                    <div class="small muted">{{ it.when }} • {{ it.where }}</div>
+                    <div class="mt-2">
+                      <a class="btn btn-sm btn-success w-100" href="{{ it.url }}">
+                        <i class="bi bi-eye"></i> View
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="text-muted small px-2">No tickets yet — browse events to get started.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Trending (fallback: reuse my_items_sorted) -->
+      <div class="cardish p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold"><i class="bi bi-graph-up-arrow text-success me-1"></i> Trending</div>
+          <div class="muted small">Platform‑wide</div>
+        </div>
+        <div class="scroll-row">
+          {% set trending_source = my_items_sorted %}
+          {% if trending_source %}
+            {% for it in trending_source %}
+              {% if loop.index0 < 10 %}
+                <div class="event-card">
+                  <img class="cover" src="https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1600&auto=format&fit=crop" alt="">
+                  <div class="body">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="pill"><i class="bi bi-fire"></i> Hot</span>
+                      <span class="pill"><i class="bi bi-tag"></i> USDC {{ it.price }}</span>
+                    </div>
+                    <div class="fw-semibold text-truncate" title="{{ it.title }}">{{ it.title }}</div>
+                    <div class="small muted">{{ it.when }} • {{ it.where }}</div>
+                    <div class="mt-2">
+                      <a class="btn btn-sm btn-outline-success w-100" href="{{ it.url }}">
+                        <i class="bi bi-eye"></i> View
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="text-muted small px-2">No trending events yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== KPIs =================== -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="stat h-100">
+          <div class="label">Upcoming Tickets</div>
+          <div class="value">{{ upcoming_count }}</div>
+          <svg class="spark" data-points="{{ spark_points|join(',') }}"></svg>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat h-100">
+          <div class="label">Past Tickets</div>
+          <div class="value">{{ past_count }}</div>
+          <svg class="spark" data-points="{{ spark_points|join(',') }}"></svg>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat h-100">
+          <div class="label">Total Spent (USDC)</div>
+          <div class="value">{{ total_spent }}</div>
+          <svg class="spark" data-points="{{ spark_points|join(',') }}"></svg>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat h-100">
+          <div class="label">Last Attended</div>
+          <div class="value text-truncate" title="{{ last_attended_label }}">{{ last_attended_label }}</div>
+          <svg class="spark" data-points="{{ spark_points|join(',') }}"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- =================== TICKETS TABLE =================== -->
+      <div class="col-12 col-lg-8">
+        <!-- Filters -->
+        <div class="cardish p-3 mb-2 filters">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+              <label class="form-label small text-muted">Search</label>
+              <input type="text" class="form-control" id="fltSearch" placeholder="Search event, venue…">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small text-muted">Status</label>
+              <select class="form-select" id="fltStatus">
+                <option value="">All</option>
+                <option value="valid">Valid</option>
+                <option value="used">Used</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small text-muted">Tier</label>
+              <select class="form-select" id="fltTier">
+                <option value="">All</option>
+                {% for k, label in tier_map.items() %}
+                  <option value="{{ k }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small text-muted">Venue</label>
+              <select class="form-select" id="fltVenue">
+                <option value="">All</option>
+                {% for k, label in venue_map.items() %}
+                  <option value="{{ k }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small text-muted">From</label>
+              <input type="date" class="form-control" id="fltFrom">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small text-muted">To</label>
+              <input type="date" class="form-control" id="fltTo">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label small opacity-0 d-block">apply</label>
+              <button class="btn btn-outline-success w-100" id="fltClear">
+                <i class="bi bi-x-circle"></i> Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="d-flex gap-2 mb-2">
+          <button class="btn btn-sm btn-outline-success tab-btn active" data-tab="tab-upcoming"><i class="bi bi-calendar2-event"></i> Upcoming</button>
+          <button class="btn btn-sm btn-outline-success tab-btn" data-tab="tab-past"><i class="bi bi-clock-history"></i> Past</button>
+          <button class="btn btn-sm btn-outline-success tab-btn" data-tab="tab-all"><i class="bi bi-list-ul"></i> All</button>
+        </div>
+
+        <div class="table-wrap cardish">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Event</th>
+                  <th>Date/Time</th>
+                  <th>Venue</th>
+                  <th class="text-center">Tier</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-end">Total (USDC)</th>
+                  <th class="text-center">Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+
+              <!-- Upcoming -->
+              <tbody id="rows-upcoming">
+                {% set up = tickets | selectattr('is_upcoming') | list %}
+                {% if up %}
+                  {% for t in up %}
+                  <tr
+                    data-title="{{ (t.title or '')|lower }}"
+                    data-venue="{{ (t.where or '')|lower }}"
+                    data-tier="{{ (t.tier or '')|lower }}"
+                    data-status="{{ (t.status or '')|lower }}"
+                    data-when="{{ t.when }}"
+                  >
+                    <td><a href="{{ t.url }}" class="text-decoration-none fw-semibold">{{ t.title }}</a></td>
+                    <td class="small">{{ t.when }}</td>
+                    <td class="small">{{ t.where }}</td>
+                    <td class="text-center small">{{ t.tier }}</td>
+                    <td class="text-center">{{ t.qty }}</td>
+                    <td class="text-end">{{ t.total }}</td>
+                    <td class="text-center"><span class="badge status-badge text-bg-success">{{ t.status }}</span></td>
+                    <td class="text-end overflow-actions">
+                      <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                          <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li><a class="dropdown-item act-qr" href="#" data-qr="{{ t.url }}"><i class="bi bi-qr-code me-2"></i>Show QR</a></li>
+                          <li><a class="dropdown-item" href="{{ t.url }}"><i class="bi bi-ticket-perforated me-2"></i>View Ticket</a></li>
+                          <li><a class="dropdown-item act-dir" href="#" data-venue="{{ t.where }}"><i class="bi bi-geo-alt me-2"></i>Directions</a></li>
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="8" class="text-center text-muted py-4">No upcoming tickets yet.</td></tr>
+                {% endif %}
+              </tbody>
+
+              <!-- Past -->
+              <tbody id="rows-past" class="d-none">
+                {% set pa = tickets | rejectattr('is_upcoming') | list %}
+                {% if pa %}
+                  {% for t in pa %}
+                  <tr
+                    data-title="{{ (t.title or '')|lower }}"
+                    data-venue="{{ (t.where or '')|lower }}"
+                    data-tier="{{ (t.tier or '')|lower }}"
+                    data-status="{{ (t.status or '')|lower }}"
+                    data-when="{{ t.when }}"
+                  >
+                    <td><a href="{{ t.url }}" class="text-decoration-none fw-semibold">{{ t.title }}</a></td>
+                    <td class="small">{{ t.when }}</td>
+                    <td class="small">{{ t.where }}</td>
+                    <td class="text-center small">{{ t.tier }}</td>
+                    <td class="text-center">{{ t.qty }}</td>
+                    <td class="text-end">{{ t.total }}</td>
+                    <td class="text-center"><span class="badge status-badge text-bg-secondary">{{ t.status }}</span></td>
+                    <td class="text-end overflow-actions">
+                      <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                          <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li><a class="dropdown-item act-qr" href="#" data-qr="{{ t.url }}"><i class="bi bi-qr-code me-2"></i>Show QR</a></li>
+                          <li><a class="dropdown-item" href="{{ t.url }}"><i class="bi bi-ticket-perforated me-2"></i>View Ticket</a></li>
+                          <li><a class="dropdown-item act-dir" href="#" data-venue="{{ t.where }}"><i class="bi bi-geo-alt me-2"></i>Directions</a></li>
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="8" class="text-center text-muted py-4">No past tickets.</td></tr>
+                {% endif %}
+              </tbody>
+
+              <!-- All -->
+              <tbody id="rows-all" class="d-none">
+                {% if tickets %}
+                  {% for t in tickets %}
+                  <tr
+                    data-title="{{ (t.title or '')|lower }}"
+                    data-venue="{{ (t.where or '')|lower }}"
+                    data-tier="{{ (t.tier or '')|lower }}"
+                    data-status="{{ (t.status or '')|lower }}"
+                    data-when="{{ t.when }}"
+                  >
+                    <td><a href="{{ t.url }}" class="text-decoration-none fw-semibold">{{ t.title }}</a></td>
+                    <td class="small">{{ t.when }}</td>
+                    <td class="small">{{ t.where }}</td>
+                    <td class="text-center small">{{ t.tier }}</td>
+                    <td class="text-center">{{ t.qty }}</td>
+                    <td class="text-end">{{ t.total }}</td>
+                    <td class="text-center">
+                      <span class="badge status-badge {{ 'text-bg-success' if t.is_upcoming else 'text-bg-secondary' }}">{{ t.status }}</span>
+                    </td>
+                    <td class="text-end overflow-actions">
+                      <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                          <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                          <li><a class="dropdown-item act-qr" href="#" data-qr="{{ t.url }}"><i class="bi bi-qr-code me-2"></i>Show QR</a></li>
+                          <li><a class="dropdown-item" href="{{ t.url }}"><i class="bi bi-ticket-perforated me-2"></i>View Ticket</a></li>
+                          <li><a class="dropdown-item act-dir" href="#" data-venue="{{ t.where }}"><i class="bi bi-geo-alt me-2"></i>Directions</a></li>
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="8" class="text-center text-muted py-4">You haven’t bought any tickets yet.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================== RECENT ATTENDANCE =================== -->
+      <div class="col-12 col-lg-4">
+        <div class="cardish p-3 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h6 mb-0">Recent Attendance</h2>
+            <button class="btn btn-sm btn-outline-success" id="btnDownloadProof">
+              <i class="bi bi-download"></i> Proof
+            </button>
+          </div>
+          <div class="attendance-list">
+            {% if recent_attendance %}
+              <ul class="list-group list-group-flush">
+                {% for a in recent_attendance %}
+                <li class="list-group-item px-0">
+                  <div class="fw-semibold text-truncate"><a class="text-decoration-none" href="{{ a.url }}">{{ a.title }}</a></div>
+                  <div class="small muted">{{ a.when }} • {{ a.where }}</div>
+                </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="muted mb-0">No recent check‑ins yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- QR Modal -->
+  <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-qr-code"></i> Ticket QR</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <img id="qrImg" alt="QR Code" class="img-fluid" style="max-width:220px"/>
+          <div class="small muted mt-2" id="qrHint"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    /* Tabs (IIFE) */
+    (() => {
+      const tabs = document.querySelectorAll('.tab-btn');
+      const sections = {
+        'tab-upcoming': document.getElementById('rows-upcoming'),
+        'tab-past': document.getElementById('rows-past'),
+        'tab-all': document.getElementById('rows-all'),
+      };
+      tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabs.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          Object.values(sections).forEach(el => el.classList.add('d-none'));
+          sections[btn.dataset.tab].classList.remove('d-none');
+          document.dispatchEvent(new CustomEvent('rows-switched'));
+        });
+      });
+    })();
+
+    /* Simple SVG sparklines (IIFE) */
+    (() => {
+      function drawSpark(svg){
+        const pts = (svg.dataset.points || '').split(',').map(v => +v || 0);
+        const W = svg.clientWidth || 74, H = svg.clientHeight || 28, pad = 2;
+        const max = Math.max(1, ...pts), min = Math.min(...pts);
+        const norm = v => H - pad - ((v - min) / (max - min || 1)) * (H - 2*pad);
+        const step = (W - 2*pad) / Math.max(1, pts.length - 1);
+        let d = '';
+        pts.forEach((v,i) => { const x = pad + i * step, y = norm(v); d += (i ? 'L':'M') + x + ' ' + y + ' '; });
+        svg.innerHTML = `<path d="${d}" fill="none" stroke="rgba(22,163,74,.9)" stroke-width="2"/>`;
+      }
+      document.querySelectorAll('.spark').forEach(drawSpark);
+      window.addEventListener('resize', () => document.querySelectorAll('.spark').forEach(drawSpark));
+    })();
+
+    /* Filters + Search (IIFE) */
+    (() => {
+      const $q   = document.getElementById('fltSearch');
+      const $st  = document.getElementById('fltStatus');
+      const $tier= document.getElementById('fltTier');
+      const $ven = document.getElementById('fltVenue');
+      const $from= document.getElementById('fltFrom');
+      const $to  = document.getElementById('fltTo');
+      const $clr = document.getElementById('fltClear');
+
+      function monthNum(abbr){
+        return {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,'Jul':7,'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12}[abbr] || 1;
+      }
+      function parseWhen(str){
+        // Expect: "Thu, Aug 15 · 19:00"
+        try{
+          const parts = str.split(', ');
+          const md = (parts[1]||'').split(' · ')[0]; // "Aug 15"
+          const time = (parts[1]||'').split(' · ')[1] || '00:00';
+          const [mon, day] = md.split(' ');
+          const dt = new Date();
+          dt.setMonth(monthNum(mon)-1);
+          dt.setDate(parseInt(day||'1',10));
+          const [hh, mm] = time.split(':');
+          dt.setHours(parseInt(hh||'0',10), parseInt(mm||'0',10), 0, 0);
+          return dt;
+        }catch(e){ return null; }
+      }
+
+      function activeBody(){
+        const el = document.querySelector('tbody:not(.d-none)#rows-upcoming, tbody:not(.d-none)#rows-past, tbody:not(.d-none)#rows-all');
+        return el || document.getElementById('rows-upcoming');
+      }
+
+      function apply(){
+        const tbody = activeBody();
+        if(!tbody) return;
+        const q = ($q.value||'').trim().toLowerCase();
+        const st = ($st.value||'').trim().toLowerCase();
+        const tier = ($tier.value||'').trim().toLowerCase();
+        const ven = ($ven.value||'').trim().toLowerCase();
+        const from = $from.value ? new Date($from.value) : null;
+        const to   = $to.value ? new Date($to.value+'T23:59:59') : null;
+
+        [...tbody.querySelectorAll('tr')].forEach(tr => {
+          if(!tr.dataset.title){ return; } // skip empty row
+          const title = tr.dataset.title || '';
+          const venue = tr.dataset.venue || '';
+          const rowSt = tr.dataset.status || '';
+          const rowTier = tr.dataset.tier || '';
+          const whenStr = tr.dataset.when || '';
+          const when = parseWhen(whenStr);
+
+          let ok = true;
+          if(q && !(title.includes(q) || venue.includes(q))) ok = false;
+          if(st && rowSt !== st) ok = false;
+          if(tier && rowTier !== tier) ok = false;
+          if(ven && venue !== ven) ok = false;
+          if(from && when && when < from) ok = false;
+          if(to && when && when > to) ok = false;
+
+          tr.classList.toggle('d-none', !ok);
+        });
+      }
+
+      [$q,$st,$tier,$ven,$from,$to].forEach(el => el && el.addEventListener('input', apply));
+      document.addEventListener('rows-switched', apply);
+      $clr && $clr.addEventListener('click', () => {
+        [$q,$st,$tier,$ven,$from,$to].forEach(el => { if(el) el.value=''; });
+        apply();
+      });
+      apply();
+    })();
+
+    /* Overflow actions (QR & Directions) (IIFE) */
+    (() => {
+      const modalEl = document.getElementById('qrModal');
+      const qrImg = document.getElementById('qrImg');
+      const qrHint = document.getElementById('qrHint');
+      const bsModal = modalEl ? new bootstrap.Modal(modalEl) : null;
+
+      document.addEventListener('click', (e) => {
+        const a = e.target.closest('a.act-qr');
+        if(a){
+          e.preventDefault();
+          const data = a.getAttribute('data-qr') || '';
+          if(qrImg){
+            const url = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(data);
+            qrImg.src = url;
+            qrHint.textContent = data;
+            bsModal && bsModal.show();
+          }
+        }
+        const d = e.target.closest('a.act-dir');
+        if(d){
+          e.preventDefault();
+          const venue = d.getAttribute('data-venue') || '';
+          const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(venue);
+          window.open(maps, '_blank', 'noopener');
+        }
+      });
+    })();
+
+    /* Download proof (IIFE) */
+    (() => {
+      const btn = document.getElementById('btnDownloadProof');
+      if(!btn) return;
+      btn.addEventListener('click', () => {
+        const lines = ['AkwaabaTickets — Attendance Proof', 'Name: {{ name }}', 'Generated: ' + new Date().toISOString(), '', 'Recent Attendance:'];
+        document.querySelectorAll('.attendance-list .list-group-item').forEach((li, i) => {
+          const title = (li.querySelector('a')?.textContent || '').trim();
+          const meta = (li.querySelector('.muted')?.textContent || '').trim();
+          lines.push((i+1)+'. '+title+' — '+meta);
+        });
+        const blob = new Blob([lines.join('\n')], {type:'text/plain;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'attendance-proof.txt';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,308 @@
+{% set GREEN = "#16A34A" %}
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title or "Browse Events" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand: {{ GREEN }};
+      --ink:#0b1b2b; --muted:#6b7280; --line:#e5e7eb;
+      --radius: 16px; --shadow: 0 10px 28px rgba(2,6,23,.08);
+    }
+    .toolbar{ position: sticky; top: 0; z-index: 20; background: #fff; border-bottom:1px solid var(--line);}
+    .form-control:focus, .form-select:focus, .btn:focus { box-shadow: 0 0 0 .2rem rgba(22,163,74,.2); }
+    .btn-brand{ border:1px solid var(--brand); color:#fff; background:var(--brand); }
+    .btn-brand:hover{ filter:brightness(.95); }
+    .btn-outline-brand{ border:1px solid var(--brand); color:var(--brand); }
+    .btn-outline-brand:hover{ background: rgba(22,163,74,.08); }
+    /* Card */
+    .event-card{
+      border:1px solid var(--line); border-radius: var(--radius); overflow:hidden; background:#fff; box-shadow: var(--shadow);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .event-card:hover{ transform: translateY(-2px); box-shadow: 0 12px 30px rgba(2,6,23,.1); }
+    .event-cover{ aspect-ratio: 16/9; object-fit: cover; width: 100%; }
+    .badge-cat{ background: rgba(22,163,74,.10); color: #0f5132; border:1px solid rgba(22,163,74,.25);}
+    .chip{
+      display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .5rem; border-radius:999px;
+      border:1px solid var(--line); background:#fff; font-size:.85rem;
+    }
+    .chip button{ border:0; background:transparent; line-height:1; }
+    .muted{ color: var(--muted); }
+    .offcanvas-header{ border-bottom:1px solid var(--line); }
+    .results-count{ font-size:.95rem; color:#475569; }
+  </style>
+</head>
+<body class="bg-light">
+    {% include "attendee_sidebar.html" %}
+
+
+  <!-- Top toolbar -->
+  <div class="toolbar py-3">
+    <div class="container">
+      <form id="filtersForm" class="row g-2 align-items-center" role="search" method="get" action="{{ url_for('public.browse_events') }}">
+        <!-- Search -->
+        <div class="col-12 col-md">
+          <label for="q" class="visually-hidden">Search events</label>
+          <div class="input-group">
+            <span class="input-group-text" id="icon-search" aria-hidden="true"><i class="bi bi-search"></i></span>
+            <input id="q" name="q" type="search" class="form-control" placeholder="Search events, artists, venues…"
+                   value="{{ q }}" aria-label="Search events" aria-describedby="icon-search">
+          </div>
+        </div>
+
+        <!-- Category dropdown (desktop) -->
+        <div class="col-md-auto d-none d-md-flex align-items-center">
+          <div class="dropdown">
+            <button class="btn btn-outline-brand dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">
+              <i class="bi bi-sliders"></i> Categories
+            </button>
+            <ul class="dropdown-menu p-3" style="min-width: 280px;" role="menu" aria-label="Category filter">
+              <div class="row g-2">
+                {% for slug in categories %}
+                  <div class="col-6">
+                    <div class="form-check">
+                      <input class="form-check-input cat-cb" type="checkbox" value="{{ slug }}" id="cat-{{ slug }}" {% if slug in selected_categories %}checked{% endif %}>
+                      <label class="form-check-label" for="cat-{{ slug }}">{{ slug.replace('-', ' ')|title }}</label>
+                    </div>
+                  </div>
+                {% endfor %}
+                {% if not categories %}
+                  <div class="col-12"><span class="muted">No categories yet</span></div>
+                {% endif %}
+              </div>
+              <div class="d-flex gap-2 mt-3">
+                <button type="button" id="applyBtn" class="btn btn-brand btn-sm">Apply</button>
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('public.browse_events') }}">Reset</a>
+              </div>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Filter Drawer (mobile) -->
+        <div class="col-12 d-md-none">
+          <button class="btn btn-outline-brand w-100" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterDrawer" aria-controls="filterDrawer">
+            <i class="bi bi-sliders"></i> Filters
+          </button>
+        </div>
+
+        <!-- Per page -->
+        <div class="col-6 col-md-auto">
+          <label for="per_page" class="visually-hidden">Items per page</label>
+          <select id="per_page" name="per_page" class="form-select">
+            {% for n in [10,20,30,50] %}
+              <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Hidden category field to carry comma-separated slugs -->
+        <input type="hidden" id="categoryInput" name="category" value="{{ selected_categories|join(',') }}">
+
+        <!-- Keep page? Reset page to 1 on changes via JS -->
+        <input type="hidden" id="pageInput" name="page" value="{{ page }}">
+      </form>
+
+      <!-- Selected chips -->
+      <div class="mt-2 d-flex flex-wrap gap-2" aria-live="polite">
+        {% for slug in selected_categories %}
+          <span class="chip" data-cat="{{ slug }}">
+            {{ slug.replace('-', ' ')|title }}
+            <button type="button" class="text-danger remove-chip" aria-label="Remove {{ slug.replace('-', ' ')|title }}">
+              <i class="bi bi-x"></i>
+            </button>
+          </span>
+        {% endfor %}
+      </div>
+
+      <!-- Results count -->
+      <div class="mt-2 results-count" aria-live="polite">
+        {% if total %}
+          Showing <strong>{{ (per_page*(page-1))+1 }}</strong>–<strong>{{ [per_page*page, total]|min }}</strong> of <strong>{{ total }}</strong> events
+        {% else %}
+          No matching events
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Filter Drawer -->
+  <div class="offcanvas offcanvas-bottom" tabindex="-1" id="filterDrawer" aria-labelledby="filterDrawerLabel" style="height: 70vh;">
+    <div class="offcanvas-header">
+      <h5 id="filterDrawerLabel" class="mb-0">Filters</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="mb-3"><strong>Categories</strong></div>
+      <div class="row g-2">
+        {% for slug in categories %}
+          <div class="col-6">
+            <div class="form-check">
+              <input class="form-check-input cat-cb" type="checkbox" value="{{ slug }}" id="m-cat-{{ slug }}" {% if slug in selected_categories %}checked{% endif %}>
+              <label class="form-check-label" for="m-cat-{{ slug }}">{{ slug.replace('-', ' ')|title }}</label>
+            </div>
+          </div>
+        {% endfor %}
+        {% if not categories %}
+          <div class="col-12"><span class="muted">No categories yet</span></div>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2 mt-4">
+        <button type="button" id="applyBtnMobile" class="btn btn-brand w-100"><i class="bi bi-check2"></i> Apply</button>
+        <a class="btn btn-outline-secondary w-100" href="{{ url_for('public.browse_events') }}"><i class="bi bi-arrow-counterclockwise"></i> Reset</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <main class="container my-4" id="results" tabindex="-1">
+    {% if events %}
+      <section aria-label="Event results">
+        <div class="row g-4">
+          {% for e in events %}
+            <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+              <article class="event-card h-100" aria-labelledby="event-{{ loop.index }}-title">
+                <!-- Make cover clickable -->
+                <a href="{{ url_for('public.event_profile', event_id=e.id) }}" aria-label="View {{ e.title }}">
+                  <img class="event-cover" src="{{ e.cover }}" alt="Cover for {{ e.title }}">
+                </a>
+                <div class="p-3 d-flex flex-column gap-2">
+                  <!-- Make title clickable -->
+                  <h3 id="event-{{ loop.index }}-title" class="h6 mb-1">
+                    <a class="text-decoration-none" href="{{ url_for('public.event_profile', event_id=e.id) }}">{{ e.title }}</a>
+                  </h3>
+                  <div class="small muted"><i class="bi bi-calendar-event me-1"></i>{{ e.when }}</div>
+                  <div class="small muted"><i class="bi bi-geo-alt me-1"></i>{{ e.where }}</div>
+                  <div class="d-flex flex-wrap gap-1">
+                    {% for c in e.categories %}
+                      <span class="badge rounded-pill badge-cat">{{ (c or '')|replace('-', ' ')|title }}</span>
+                    {% endfor %}
+                  </div>
+                  <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <div class="fw-semibold">
+                      {% if e.from_price is not none %}
+                        From <span style="color:var(--brand)">USDC {{ '%.2f'|format(e.from_price) }}</span>
+                      {% else %}
+                        <span class="muted">Price TBA</span>
+                      {% endif %}
+                    </div>
+                    <!-- View button goes to profile -->
+                    <a href="{{ url_for('public.event_profile', event_id=e.id) }}"
+                       class="stretched-link text-decoration-none btn btn-sm btn-outline-brand">View</a>
+                  </div>
+                </div>
+              </article>
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Pagination -->
+      <nav class="mt-4 d-flex justify-content-between align-items-center" aria-label="Pagination">
+        <ul class="pagination mb-0">
+          <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ qs(page=page-1) }}" aria-label="Previous"><span aria-hidden="true">&laquo;</span></a>
+          </li>
+          {% for p in page_nums %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+              <a class="page-link" href="{{ qs(page=p) }}" {% if p == page %}aria-current="page"{% endif %}>{{ p }}</a>
+            </li>
+          {% endfor %}
+          <li class="page-item {% if page >= pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ qs(page=page+1) }}" aria-label="Next"><span aria-hidden="true">&raquo;</span></a>
+          </li>
+        </ul>
+
+        <div class="text-muted small">Page {{ page }} of {{ pages }}</div>
+      </nav>
+
+    {% else %}
+      <!-- Empty state -->
+      <section class="text-center py-5">
+        <div class="mb-3">
+          <i class="bi bi-calendar-x" style="font-size:3rem; color: var(--brand);"></i>
+        </div>
+        <h2 class="h4">No events match your filters</h2>
+        <p class="text-muted">Try clearing filters or searching something else.</p>
+        <a class="btn btn-brand" href="{{ url_for('public.browse_events') }}"><i class="bi bi-arrow-counterclockwise"></i> Explore all events</a>
+      </section>
+    {% endif %}
+  </main>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function(){
+      const form = document.getElementById('filtersForm');
+      const q = document.getElementById('q');
+      const perPage = document.getElementById('per_page');
+      const catHidden = document.getElementById('categoryInput');
+      const pageInput = document.getElementById('pageInput');
+      const catCbs = Array.from(document.querySelectorAll('.cat-cb'));
+      const applyBtn = document.getElementById('applyBtn');
+      const applyBtnMobile = document.getElementById('applyBtnMobile');
+      const chips = Array.from(document.querySelectorAll('.chip'));
+
+      // Debounced search submit
+      let t; 
+      q.addEventListener('input', () => {
+        clearTimeout(t);
+        pageInput.value = 1; // reset to first page
+        t = setTimeout(() => form.requestSubmit(), 450);
+      });
+
+      // Per-page change -> submit
+      perPage.addEventListener('change', () => {
+        pageInput.value = 1;
+        form.requestSubmit();
+      });
+
+      // Keep hidden category field in sync with checkboxes
+      function syncCats(){
+        const slugs = catCbs.filter(cb => cb.checked).map(cb => cb.value);
+        catHidden.value = slugs.join(',');
+        pageInput.value = 1; // reset page when filters change
+      }
+      catCbs.forEach(cb => cb.addEventListener('change', syncCats));
+
+      // Apply buttons (desktop & mobile)
+      function apply(){
+        syncCats();
+        form.requestSubmit();
+      }
+      applyBtn?.addEventListener('click', apply);
+      applyBtnMobile?.addEventListener('click', () => {
+        apply();
+        const ocEl = document.getElementById('filterDrawer');
+        const oc = bootstrap.Offcanvas.getInstance(ocEl);
+        oc && oc.hide();
+      });
+
+      // Chip remove
+      chips.forEach(chip => {
+        const slug = chip.getAttribute('data-cat');
+        const btn = chip.querySelector('.remove-chip');
+        btn?.addEventListener('click', () => {
+          const match = catCbs.find(cb => cb.value === slug);
+          if (match) match.checked = false;
+          syncCats();
+          form.requestSubmit();
+        });
+      });
+    })();
+  </script>
+  <script>
+  window.cbConfig = {
+    chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e"
+  };
+</script>
+<script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

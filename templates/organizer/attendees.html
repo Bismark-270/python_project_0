@@ -1,0 +1,267 @@
+{% set GREEN = "#16A34A" %}
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>Attendees • Organizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+      <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{ --brand: {{ GREEN }}; --brand-700:#0f6a31; --ink:#0b1b2b; --muted:#64748b; --line:#e5e7eb; --bg:#ffffff; --radius:16px; --shadow:0 12px 32px rgba(2,6,23,.08); }
+    body{ background:#f8fafc; color:var(--ink); }
+    .page-wrap{ padding:20px; }
+    .cardish{ border:1px solid var(--line); background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); }
+    .kpi h6{ color:var(--muted); margin:0; font-weight:600; }
+    .kpi .v{ font-size:1.75rem; font-weight:800; line-height:1.1; }
+    .kpi .sub{ color:var(--muted); font-size:.9rem; }
+    .btn-brand{ background:var(--brand); color:#fff; border:none; }
+    .btn-brand:hover{ background:var(--brand-700); color:#fff; }
+    .form-select,.form-control{ border-radius:12px; border:1px solid var(--line); }
+    .badge-brand{ background:rgba(22,163,74,.1); color:var(--brand); border-radius:999px; }
+    .table>thead th{ font-size:.85rem; color:#0b1b2b; }
+    .empty{ padding:40px; text-align:center; color:var(--muted); }
+    @media (max-width:575.98px){ .page-wrap{ padding:12px; } }
+  </style>
+</head>
+<body>
+    {% include "_sidebar.html" %}
+
+  <div class="page-wrap container-fluid">
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+      <div>
+        <h2 class="mb-0" style="font-weight:800;">Attendees</h2>
+        <div class="text-muted">Select an event to view totals, tiers, and recent attendees.</div>
+      </div>
+      <div class="ms-auto" style="min-width:280px;">
+        <select id="eventSelect" class="form-select">
+          {% if events and events|length > 0 %}
+            {% for e in events %}
+              <option value="{{ e._id }}" {{ 'selected' if selected_event_id==e._id|string else '' }}>
+                {{ e.title or 'Untitled Event' }} {% if e.status %}• {{ e.status|capitalize }}{% endif %}
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="">No events yet</option>
+          {% endif %}
+        </select>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-4">
+        <div class="cardish p-3 kpi">
+          <h6>Total Tickets Sold</h6>
+          <div class="d-flex align-items-end justify-content-between">
+            <div class="v" id="kpiTickets">—</div>
+            <span class="badge badge-brand px-3 py-2"><i class="bi bi-ticket-perforated"></i></span>
+          </div>
+          <div class="sub">All tickets issued for this event</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="cardish p-3 kpi">
+          <h6>Unique Attendees</h6>
+          <div class="d-flex align-items-end justify-content-between">
+            <div class="v" id="kpiUnique">—</div>
+            <span class="badge badge-brand px-3 py-2"><i class="bi bi-people"></i></span>
+          </div>
+          <div class="sub">Distinct users who purchased</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="cardish p-3 kpi">
+          <h6>Revenue (USDC)</h6>
+          <div class="d-flex align-items-end justify-content-between">
+            <div class="v" id="kpiRevenue">—</div>
+            <span class="badge badge-brand px-3 py-2"><i class="bi bi-currency-exchange"></i></span>
+          </div>
+          <div class="sub">Based on confirmed payments</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- Tier Breakdown -->
+      <div class="col-12 col-lg-6">
+        <div class="cardish p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0" style="font-weight:800;">Tier Breakdown</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th class="text-end">Price</th>
+                  <th class="text-end">Sold</th>
+                  <th class="text-end">Supply</th>
+                </tr>
+              </thead>
+              <tbody id="tierBody">
+                <tr><td colspan="4" class="empty">Select an event to load data…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tickets per Day -->
+      <div class="col-12 col-lg-6">
+        <div class="cardish p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0" style="font-weight:800;">Tickets per Day</h5>
+          </div>
+          <div style="height:240px">
+            <canvas id="ticketsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Attendees -->
+      <div class="col-12">
+        <div class="cardish p-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0" style="font-weight:800;">Recent Attendees</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width:64px;">#</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Tier</th>
+                  <th class="text-end">Price</th>
+                  <th class="text-end">Purchased At</th>
+                </tr>
+              </thead>
+              <tbody id="recentBody">
+                <tr><td colspan="7" class="empty">Select an event to load data…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script>
+    const fmt = new Intl.NumberFormat(undefined);
+    const fmtMoney = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+
+    const elEvent     = document.getElementById("eventSelect");
+    const elKpiTickets= document.getElementById("kpiTickets");
+    const elKpiUnique = document.getElementById("kpiUnique");
+    const elKpiRevenue= document.getElementById("kpiRevenue");
+    const elTierBody  = document.getElementById("tierBody");
+    const elRecentBody= document.getElementById("recentBody");
+
+    let chart;
+
+    function setEmpty(tbody, cols=1){
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="empty">No data</td></tr>`;
+    }
+
+    async function loadData(){
+      const eventId = elEvent.value;
+      if(!eventId){
+        elKpiTickets.textContent = "—";
+        elKpiUnique.textContent  = "—";
+        elKpiRevenue.textContent = "—";
+        setEmpty(elTierBody, 4);
+        setEmpty(elRecentBody, 7);
+        if(chart){ chart.destroy(); chart = null; }
+        return;
+      }
+
+      const res = await fetch(`/organizer/attendees/data?event_id=${encodeURIComponent(eventId)}`);
+      const data = await res.json();
+      if(!data.ok){
+        elKpiTickets.textContent = "—";
+        elKpiUnique.textContent  = "—";
+        elKpiRevenue.textContent = "—";
+        setEmpty(elTierBody, 4);
+        setEmpty(elRecentBody, 7);
+        if(chart){ chart.destroy(); chart = null; }
+        return;
+      }
+
+      // KPIs
+      elKpiTickets.textContent = fmt.format(data.totals.tickets_sold || 0);
+      elKpiUnique.textContent  = fmt.format(data.totals.unique_attendees || 0);
+      elKpiRevenue.textContent = fmtMoney.format(data.totals.revenue_usdc || 0);
+
+      // Tier table
+      const rows = (data.by_tier || []).map(t => `
+        <tr>
+          <td>${t.name}</td>
+          <td class="text-end">${fmtMoney.format(t.price || 0)}</td>
+          <td class="text-end">${fmt.format(t.sold || 0)}</td>
+          <td class="text-end">${t.supply ? fmt.format(t.supply) : "-"}</td>
+        </tr>
+      `);
+      elTierBody.innerHTML = rows.length ? rows.join("") : `<tr><td colspan="4" class="empty">No tiers</td></tr>`;
+
+      // Recent list with numbering + tier name
+      const r = data.recent || [];
+      const rrows = r.map((row, i) => {
+        const name = row.full_name || "Attendee";
+        const email= row.email || "";
+        const phone= row.phone || "";
+        const tier = row.tier_name || (row.tier_index ?? "-");
+        const price= fmtMoney.format(row.price || 0);
+        const ts   = row.purchased_at ? new Date(row.purchased_at).toLocaleString() : "";
+        return `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${name}</td>
+            <td>${email}</td>
+            <td>${phone}</td>
+            <td>${tier}</td>
+            <td class="text-end">${price}</td>
+            <td class="text-end">${ts}</td>
+          </tr>
+        `;
+      });
+      elRecentBody.innerHTML = rrows.length ? rrows.join("") : `<tr><td colspan="7" class="empty">No recent attendees</td></tr>`;
+
+      // Timeseries chart (fixed 14 days, no animation)
+      const labels = (data.timeseries || []).map(d => d.date);
+      const values = (data.timeseries || []).map(d => d.sold);
+
+      if(chart){ chart.destroy(); }
+      const ctx = document.getElementById('ticketsChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Tickets per day', data: values, tension: .3, fill: true }] },
+        options: {
+          animation: false,           // 🔒 stop the “running” look
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }},
+          scales: {
+            x: { grid: { display:false } },
+            y: { beginAtZero: true, grid: { color: '#eef2f7' } }
+          }
+        }
+      });
+    }
+
+    elEvent?.addEventListener("change", loadData);
+    window.addEventListener("DOMContentLoaded", loadData);
+  </script>
+  <script>
+  window.cbConfig = {
+    chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e"
+  };
+</script>
+<script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

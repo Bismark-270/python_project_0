@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Organizer — Tickets & Availability</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+      <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{ --brand:#16A34A; --brand-700:#0f6a31; --line:#e5e7eb; --muted:#64748b; --ink:#0b1b2b; }
+    body{ background:#f8fafc; color:var(--ink); }
+    .cardish{ border:1px solid var(--line); border-radius:16px; background:#fff; box-shadow: 0 8px 20px rgba(2,6,23,.06); overflow:hidden; }
+    .cover{ width:100%; height:160px; object-fit:cover; background:#eef2f7; }
+    .muted{ color:var(--muted); }
+    .chip{ display:inline-block; padding:.25rem .5rem; border-radius:999px; border:1px solid var(--line); font-size:.8rem; }
+    .btn-brand{ background:var(--brand); border:1px solid var(--brand); color:#fff; }
+    .btn-brand:hover{ background:var(--brand-700); color:#fff; }
+    .btn-outline-brand{ border:1px solid var(--brand); color:var(--brand); }
+    .btn-outline-brand:hover{ background: rgba(22,163,74,.08); }
+  </style>
+</head>
+<body>
+  {% include "_sidebar.html" %}
+
+  <main class="container-fluid p-3 p-md-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+      <div>
+        <h1 class="h4 mb-0">Tickets & Availability</h1>
+        <div class="muted small">All tiers across your events — sold, left, and revenue.</div>
+      </div>
+      <a href="{{ url_for('organizer.events_list') }}" class="btn btn-outline-brand"><i class="bi bi-calendar2"></i> Manage Events</a>
+    </div>
+
+    {% if empty %}
+      <div class="text-center py-5">
+        <div class="display-6 mb-3">No events yet</div>
+        <p class="muted mb-4">Create your first event and start selling tickets.</p>
+        <a class="btn btn-brand" href="{{ url_for('organizer.events_new') }}"><i class="bi bi-plus-circle"></i> New Event</a>
+      </div>
+    {% else %}
+      <div class="row g-3">
+        {% for c in cards %}
+        <div class="col-12 col-md-6 col-xl-4">
+          <div class="cardish h-100">
+            {% if c.event_img %}
+              <img class="cover" src="{{ c.event_img }}" alt="Event image">
+            {% else %}
+              <div class="cover d-flex align-items-center justify-content-center text-secondary">
+                <i class="bi bi-image" style="font-size:2rem;"></i>
+              </div>
+            {% endif %}
+            <div class="p-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="fw-bold">{{ c.event_title }}</div>
+                  <div class="small muted">
+                    <i class="bi bi-calendar-event me-1"></i>{{ c.when }} &nbsp;•&nbsp;
+                    <i class="bi bi-geo-alt me-1"></i>{{ c.where }}
+                  </div>
+                </div>
+                <span class="chip">Tier {{ c.tier_idx + 1 }}</span>
+              </div>
+
+              <hr class="my-3">
+
+              <div class="row g-2 small">
+                <div class="col-6"><span class="muted">Tier:</span> <strong>{{ c.tier_name }}</strong></div>
+                <div class="col-6 text-end"><span class="muted">Price:</span> <strong>{{ "{:,.2f}".format(c.price or 0.0) }} USDC</strong></div>
+                <div class="col-4"><span class="muted">Sold:</span> <strong>{{ c.sold }}</strong></div>
+                <div class="col-4"><span class="muted">Left:</span> <strong>{{ c.left }}</strong></div>
+                <div class="col-4 text-end"><span class="muted">Supply:</span> <strong>{{ c.supply }}</strong></div>
+              </div>
+
+              <div class="mt-2 small d-flex justify-content-between align-items-center">
+                <span class="muted">Tier Revenue</span>
+                <strong>{{ "{:,.2f}".format(c.revenue or 0.0) }} USDC</strong>
+              </div>
+
+              <div class="d-flex gap-2 mt-3">
+                <a class="btn btn-sm btn-brand" href="{{ url_for('organizer.organizer_tickets_tier', event_id=c.event_id, tier_idx=c.tier_idx) }}">
+                  <i class="bi bi-people"></i> View Buyers
+                </a>
+                <a class="btn btn-sm btn-outline-brand" href="/organizer/events">
+                  <i class="bi bi-box-arrow-up-right"></i> View Event
+                </a>
+                {% if c.left > 0 %}
+                <a class="btn btn-sm btn-outline-brand" href="{{ url_for('public.event_profile', event_id=c.event_id) }}">
+                  <i class="bi bi-plus-circle"></i> Buy More (Public)
+                </a>
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </main>
+  <script>
+  window.cbConfig = {
+    chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e"
+  };
+</script>
+<script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

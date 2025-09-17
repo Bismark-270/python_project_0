@@ -1,0 +1,407 @@
+{# templates/attendee/checkout.html #}
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>Checkout • AkwaabaTickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#0000ff; --brand-600:#0000d6; --brand-700:#0000b3;
+      --ink:#0b1b2b; --muted:#6b7280; --line:#e5e7eb; --line-strong:#d5d8dd;
+      --surface:#f7f7f8; --card:#ffffff; --radius:16px;
+      --shadow:0 12px 32px rgba(2,6,23,.08); --focus:0 0 0 3px rgba(0,0,255,.25);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --ink:#e8eef6; --muted:#9aa4b2; --surface:#0f1113; --card:#15181c; --line:#262a31; --line-strong:#2f343d; --shadow:0 12px 32px rgba(0,0,0,.35); --focus:0 0 0 3px rgba(0,0,255,.35); }
+    }
+    html,body{ background:var(--surface); color:var(--ink); }
+    .cardish{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .divider{ height:1px; background:var(--line); }
+    .btn-brand{ --bs-btn-bg:var(--brand); --bs-btn-border-color:var(--brand); --bs-btn-hover-bg:var(--brand-600); --bs-btn-hover-border-color:var(--brand-600); --bs-btn-active-bg:var(--brand-700); --bs-btn-active-border-color:var(--brand-700); color:#fff; border-radius:12px; transition:transform .06s ease; }
+    .btn-brand:active{ transform:translateY(1px); }
+    .btn-outline-brand{ --bs-btn-color:var(--brand); --bs-btn-border-color:var(--brand); --bs-btn-hover-bg:rgba(0,0,255,.06); --bs-btn-hover-color:var(--brand); --bs-btn-hover-border-color:var(--brand); border-radius:12px; }
+    .form-control,.form-select{ border-radius:12px; }
+    :focus-visible{ outline:none!important; box-shadow:var(--focus)!important; }
+    .pressable:active{ transform:translateY(1px); }
+
+    /* Steps */
+    .steps{ display:flex; gap:12px; align-items:center; }
+    .step{ display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; border:1px solid var(--line); border-radius:999px; background:var(--card); color:var(--muted); font-weight:600; font-size:.9rem; }
+    .step .dot{ width:8px; height:8px; border-radius:50%; background:var(--line-strong); }
+    .step.active{ color:var(--brand); border-color:var(--brand); } .step.active .dot{ background:var(--brand); }
+    .step.done{ color:var(--ink); border-color:var(--line-strong); } .step.done .dot{ background:var(--brand); }
+    .step-connector{ height:2px; flex:1; background:linear-gradient(90deg,var(--line-strong),var(--line)); border-radius:999px; }
+
+    /* Summary */
+    .summary .rowline{ display:flex; justify-content:space-between; align-items:center; padding:.35rem 0; }
+    .summary .label{ color:var(--muted); }
+    .summary .total{ font-weight:800; font-size:1.15rem; }
+
+    /* Banners */
+    .status-banner{ border-radius:12px; padding:.75rem 1rem; border:1px solid var(--line); }
+    .status-success{ background:rgba(0,255,0,.06); border-color:#2ecc71; }
+    .status-error{ background:rgba(255,0,0,.06); border-color:#e74c3c; }
+    .status-info{ background:rgba(0,0,255,.06); border-color:var(--brand); }
+
+    /* Grid */
+    .grid{ display:grid; gap:1rem; grid-template-columns:1fr; }
+    @media (min-width:992px){ .grid{ grid-template-columns:minmax(0,1fr) 380px; } }
+  </style>
+</head>
+<body>
+  {% include "attendee_sidebar.html" %}
+
+  <main class="container my-4">
+    <!-- Progress -->
+    <div class="cardish p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="steps w-100 w-lg-auto">
+          <div class="step step-1 active" aria-current="step"><span class="dot"></span> Review</div>
+          <div class="step-connector"></div>
+          <div class="step step-2"><span class="dot"></span> Connect</div>
+          <div class="step-connector"></div>
+          <div class="step step-3"><span class="dot"></span> Pay</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge rounded-pill text-bg-light border"><span class="me-1">Network</span> {{ vm.web3.chainName }}</span>
+          <span class="badge rounded-pill text-bg-light border">USDC</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusHost" class="mb-3" aria-live="polite"></div>
+
+    <div class="grid">
+      <!-- Left -->
+      <section class="cardish p-3 p-md-4">
+        <header class="mb-3">
+          <h1 class="h5 mb-1">Checkout</h1>
+          <div class="text-muted small">Confirm your details and pay securely with Base.</div>
+        </header>
+
+        <div class="mb-3">
+          <div class="small text-muted">Event</div>
+          <div class="fw-semibold">{{ vm.event.title }}</div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <div class="small text-muted">Ticket</div>
+            <div class="fw-medium">{{ vm.tier.name }}</div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="small text-muted">Unit price</div>
+            <div id="unitPrice"
+                 data-price="{{ '%.6f'|format(vm.tier.price) }}">
+              USDC {{ '%.2f'|format(vm.tier.price) }}
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="small text-muted d-block">Quantity</label>
+            <div class="input-group">
+              <button class="btn btn-outline-secondary pressable" type="button" id="qtyDec" aria-label="Decrease">–</button>
+              <select id="qty" class="form-select" aria-label="Quantity"
+                      data-max="{{ vm.max_qty or 1 }}" data-init="{{ vm.qty }}">
+                {% for i in range(1, (vm.max_qty or 1) + 1) %}
+                  <option value="{{ i }}" {% if i == vm.qty %}selected{% endif %}>{{ i }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-outline-secondary pressable" type="button" id="qtyInc" aria-label="Increase">+</button>
+            </div>
+            <div class="form-text">Max available now: {{ vm.max_qty }}</div>
+          </div>
+        </div>
+
+        <!-- Promo (stub) -->
+        <div class="mt-3">
+          <label class="small text-muted">Promo code</label>
+          <div class="input-group">
+            <input class="form-control" id="promoCode" placeholder="Enter code (stub)">
+            <button class="btn btn-outline-brand pressable" id="applyPromo" type="button">Apply</button>
+          </div>
+          <div id="promoNote" class="form-text text-muted">Promo application is coming soon.</div>
+        </div>
+
+        <div class="divider my-4"></div>
+
+        <!-- Connect -->
+        <div class="cardish p-3 p-md-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold">Sign in with Base</div>
+            <span class="badge rounded-pill text-bg-light border">{{ vm.web3.chainName }}</span>
+          </div>
+          <div class="small text-muted">Connect to view your address/ENS and proceed to payment.</div>
+
+          <div class="row g-3 align-items-end mt-1">
+            <div class="col-12 col-lg-7">
+              <div class="small text-muted mb-1">Account</div>
+              <div id="walletStatus" class="text-muted">Not connected</div>
+              <div id="savedWalletHint" class="small mt-1" style="display:none;">
+                <span class="text-muted">Saved wallet:</span> <code class="text-body-secondary" id="savedWalletCode"></code>
+              </div>
+            </div>
+            <div class="col-12 col-lg-5 text-lg-end">
+              <div class="d-flex gap-2 justify-content-lg-end">
+                <button class="btn btn-outline-brand pressable" id="signinBtn" type="button">Sign in with Base</button>
+                <a class="btn btn-outline-secondary pressable" target="_blank" rel="noopener" id="explBtn" href="{{ vm.web3.explorer or '#' }}">Explorer</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="small text-muted mt-2">
+            Payout: <code class="small" id="payoutAddr">{{ vm.web3.payout }}</code>
+          </div>
+          <div id="statusBox" class="small mt-2 text-muted"></div>
+        </div>
+
+        <!-- Pay -->
+        <div class="d-grid gap-2">
+          <button class="btn btn-brand btn-lg pressable" id="payBtn" type="button" aria-disabled="false">
+            <span class="spinner-border spinner-border-sm me-2 d-none" id="paySpinner" role="status" aria-hidden="true"></span>
+            <span id="payLabel">Pay with Base</span>
+          </button>
+          <a class="btn btn-outline-brand" href="{{ url_for('public.event_profile', event_id=vm.event.id) }}">Back to event</a>
+        </div>
+      </section>
+
+      <!-- Right: Summary -->
+      <aside class="cardish p-3 p-md-4 summary">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="fw-semibold">Order Summary</div>
+          <span class="badge rounded-pill text-bg-light border">{{ vm.web3.chainName }}</span>
+        </div>
+        <div class="rowline"><div class="label">Ticket</div><div class="text-end">{{ vm.tier.name }}</div></div>
+        <div class="rowline"><div class="label">Unit price</div><div class="text-end">USDC {{ '%.2f'|format(vm.tier.price) }}</div></div>
+        <div class="rowline"><div class="label">Quantity</div><div class="text-end"><span id="sumQty">{{ vm.qty }}</span></div></div>
+        <div class="rowline"><div class="label">Subtotal</div><div class="text-end">USDC <span id="sumSubtotal">{{ '%.2f'|format(vm.amount) }}</span></div></div>
+        <div class="rowline"><div class="label">Network fee</div><div class="text-end"><span class="text-muted" id="sumFee">~USDC 0.00</span></div></div>
+        <div class="divider my-2"></div>
+        <div class="rowline total"><div>Total</div><div>USDC <span id="sumTotal">{{ '%.2f'|format(vm.amount) }}</span></div></div>
+        <div class="small text-muted mt-2">USDC is settled on Base. Quotes and fees are finalized at payment.</div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Config JSON -->
+  <script type="application/json" id="web3-cfg">{{ vm.web3 | tojson | safe }}</script>
+
+  <!-- Base Account SDK -->
+  <script src="https://unpkg.com/@base-org/account/dist/base-account.min.js"></script>
+
+  <script>
+    (function () {
+      // ===== DOM & Config (NO JINJA inside JS) =====
+      var CFG = JSON.parse(document.getElementById('web3-cfg').textContent);
+
+      var qtySel   = document.getElementById('qty');
+      var qtyDec   = document.getElementById('qtyDec');
+      var qtyInc   = document.getElementById('qtyInc');
+      var unitEl   = document.getElementById('unitPrice');
+      var sumQty   = document.getElementById('sumQty');
+      var sumSub   = document.getElementById('sumSubtotal');
+      var sumFee   = document.getElementById('sumFee');
+      var sumTotal = document.getElementById('sumTotal');
+      var promoInp = document.getElementById('promoCode');
+      var promoBtn = document.getElementById('applyPromo');
+      var promoNote= document.getElementById('promoNote');
+
+      var signinB  = document.getElementById('signinBtn');
+      var payB     = document.getElementById('payBtn');
+      var payLbl   = document.getElementById('payLabel');
+      var paySpn   = document.getElementById('paySpinner');
+      var statusEl = document.getElementById('walletStatus');
+      var statusBox= document.getElementById('statusBox');
+      var savedHint= document.getElementById('savedWalletHint');
+      var savedCode= document.getElementById('savedWalletCode');
+      var statusHost= document.getElementById('statusHost');
+
+      var step1 = document.querySelector('.step-1');
+      var step2 = document.querySelector('.step-2');
+      var step3 = document.querySelector('.step-3');
+
+      var maxQty = parseInt(qtySel.getAttribute('data-max') || '1', 10);
+      var initQty = parseInt(qtySel.getAttribute('data-init') || '1', 10);
+
+      function setStep(idx){
+        var arr = [step1, step2, step3];
+        for(var i=0;i<arr.length;i++){
+          var el = arr[i];
+          el.classList.remove('active'); el.classList.remove('done');
+          if (i+1 < idx) el.classList.add('done');
+          else if (i+1 === idx) el.classList.add('active');
+        }
+      }
+
+      function banner(kind, msg){
+        statusHost.innerHTML = '<div class="status-banner status-' + kind + '">' + msg + '</div>';
+      }
+
+      function fmt2(n){ return (Math.round(n*100)/100).toFixed(2); }
+      function unit(){ return parseFloat(unitEl.getAttribute('data-price') || '0'); }
+      function qty(){ return parseInt(qtySel.value || '1', 10); }
+      function subtotal(){ return unit() * qty(); }
+      function estFee(){ return 0.00; } // visual only
+      function total(){ return subtotal() + estFee(); }
+
+      function updateSummary(){
+        sumQty.textContent = String(qty());
+        sumSub.textContent = fmt2(subtotal());
+        sumFee.textContent = '~USDC ' + fmt2(estFee());
+        sumTotal.textContent = fmt2(total());
+      }
+
+      function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+      if (qtyDec) qtyDec.addEventListener('click', function(){
+        var v = clamp(qty()-1, 1, maxQty);
+        qtySel.value = String(v); updateSummary();
+      });
+      if (qtyInc) qtyInc.addEventListener('click', function(){
+        var v = clamp(qty()+1, 1, maxQty);
+        qtySel.value = String(v); updateSummary();
+      });
+      qtySel.addEventListener('change', updateSummary);
+      qtySel.value = String(initQty);
+      updateSummary();
+
+      if (promoBtn) promoBtn.addEventListener('click', function(){
+        var code = (promoInp.value || '').trim();
+        if(!code){ promoNote.textContent = 'Enter a code to apply (stub).'; return; }
+        promoNote.textContent = 'Promo application is coming soon.';
+        banner('info', 'Promo support is coming soon. Your total has not changed.');
+        setTimeout(function(){ statusHost.innerHTML=''; }, 3500);
+      });
+
+      // ===== Base Account SDK =====
+      var sdk = window.createBaseAccountSDK({
+        appName: (CFG.baseApp && CFG.baseApp.appName) || 'AkwaabaTickets',
+        appLogoUrl: (CFG.baseApp && CFG.baseApp.appLogoUrl) || 'https://base.org/logo.png'
+      });
+      var baseProvider = sdk.getProvider();
+      var userAddress = null;
+
+      // Saved wallet hint
+      try{
+        var saved = localStorage.getItem('base_saved_wallet');
+        if(saved){
+          savedCode.textContent = saved;
+          savedHint.style.display = '';
+        }
+      }catch(e){}
+
+      function setStatus(msg){ statusBox.textContent = msg; }
+      function uiOk(msg){ setStatus('✅ ' + msg); }
+      function uiErr(msg){ setStatus('❌ ' + msg); }
+
+      function setPayLoading(on){
+        payB.setAttribute('aria-disabled', on ? 'true' : 'false');
+        payB.disabled = !!on;
+        if (on) { paySpn.classList.remove('d-none'); payLbl.textContent = 'Processing…'; }
+        else    { paySpn.classList.add('d-none');    payLbl.textContent = 'Pay with Base'; }
+      }
+
+      function generateNonce(){
+        var base = String(Date.now()) + Math.random().toString(16).slice(2);
+        return base.replace(/-/g,'');
+      }
+
+      // Connect
+      signinB.addEventListener('click', function(){
+        (async function(){
+          try{
+            setStep(2);
+            setStatus('Connecting to Base Account…');
+            var nonce = generateNonce();
+            var res = await baseProvider.request({
+              method: 'wallet_connect',
+              params: [{
+                version:'1',
+                capabilities:{ signInWithEthereum:{ nonce:nonce, chainId: CFG.chainIdHex } }
+              }]
+            });
+            var address = res && res.accounts && res.accounts[0] && res.accounts[0].address;
+            if(!address) throw new Error('No address returned');
+            userAddress = address;
+            statusEl.textContent = 'Connected: ' + address.slice(0,6) + '…' + address.slice(-4);
+            uiOk('Signed in with Base');
+            try{ localStorage.setItem('base_saved_wallet', address); }catch(e){}
+            setStep(3);
+          }catch(e){
+            console.error(e); uiErr(e && e.message ? e.message : String(e)); setStep(1);
+          }
+        })();
+      });
+
+      // Pay
+      payB.addEventListener('click', function(){
+        (async function(){
+          try{
+            setPayLoading(true);
+            banner('info','Initializing payment on Base…');
+            setStep(3);
+
+            var amountUsd = subtotal().toFixed(2);
+            var toAddr = CFG.payout;
+
+            var result = await window.base.pay({
+              amount: amountUsd,
+              to: toAddr,
+              testnet: !!CFG.isTestnet
+            });
+
+            var status = await window.base.getPaymentStatus({
+              id: result.id,
+              testnet: !!CFG.isTestnet
+            });
+
+            uiOk('Payment status: ' + (status && status.status ? status.status : 'unknown') + '. Issuing tickets…');
+            banner('success','Payment succeeded. Finalizing your order…');
+
+            var res = await fetch(CFG.completeUrl, {
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              credentials:'same-origin',
+              body: JSON.stringify({
+                eventId: CFG.eventId,
+                tierIdx: CFG.tierIdx,
+                quantity: qty(),
+                from: userAddress,
+                to: toAddr,
+                chainId: CFG.chainId,
+                amountUSDC: subtotal().toFixed(6),
+                basePaymentId: result.id,
+                baseStatus: status && status.status ? status.status : null,
+                baseStatusRaw: status || null
+              })
+            });
+            var data = await res.json();
+            if(!data.ok){
+              banner('error','Server error: ' + (data.error || 'unknown'));
+              setPayLoading(false);
+              return;
+            }
+            window.location.href = data.redirect;
+          }catch(e){
+            console.error(e);
+            banner('error','Payment failed: ' + (e && e.message ? e.message : String(e)));
+            uiErr(e && e.message ? e.message : String(e));
+            setPayLoading(false);
+          }
+        })();
+      });
+
+      // Explorer link (fallback safe)
+      try{
+        var baseScan = CFG.explorer || 'https://basescan.org';
+        var expl = document.getElementById('explBtn');
+        if (expl) expl.href = baseScan;
+      }catch(e){}
+    })();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

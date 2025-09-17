@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AkwaabaTickets — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#10B981;
+      --brand-600:#0ea371;
+      --brand-700:#0a7f57;
+      --ink:#0b1b2b;
+      --muted:#6b7280;
+      --card:#ffffff;
+    }
+    html, body { height: 100%; }
+    body{
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,.18), transparent 60%),
+        linear-gradient(180deg, rgba(16,185,129,.10), #ffffff 35%);
+      /* subtle ticket/confetti watermark (inline SVG) */
+      --wm: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2310B981' fill-opacity='.08'%3E%3Cpath d='M20 20h24v10a5 5 0 110 10v10H20V40a5 5 0 110-10V20z'/%3E%3Ccircle cx='90' cy='26' r='6'/%3E%3Crect x='78' y='60' width='28' height='18' rx='4'/%3E%3Ccircle cx='30' cy='90' r='4'/%3E%3C/g%3E%3C/svg%3E");
+      background-image: var(--wm), radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,.18), transparent 60%), linear-gradient(180deg, rgba(16,185,129,.10), #ffffff 35%);
+      background-repeat: repeat, no-repeat, no-repeat;
+      background-size: 240px 240px, cover, cover;
+    }
+
+    .auth-wrap{ min-height:100%; display:flex; align-items:center; padding-block:4rem; }
+    .auth-card{
+      background:var(--card);
+      border:1px solid #e5e7eb;
+      border-radius: 1rem; /* xl */
+      box-shadow: 0 12px 32px rgba(2,6,23,.08);
+      overflow:hidden;
+    }
+    .brand-logo{ height:64px; width:auto; }
+
+    /* Buttons */
+    .btn-brand{
+      --bs-btn-bg: var(--brand);
+      --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-600);
+      --bs-btn-hover-border-color: var(--brand-600);
+      --bs-btn-active-bg: var(--brand-700);
+      --bs-btn-active-border-color: var(--brand-700);
+      color:#fff;
+    }
+
+    /* Input icons inside */
+    .form-floating > .bi{
+      position:absolute; left:12px; top:50%; transform:translateY(-50%);
+      pointer-events:none; color:#9ca3af; z-index:2;
+    }
+    .form-floating > .form-control{
+      padding-left: 2.35rem; /* room for icon */
+    }
+    .form-floating>label{ left: 2.35rem; }
+
+    /* Password eye button */
+    .toggle-eye{
+      position:absolute; right:.5rem; top:50%; transform:translateY(-50%);
+      border:0; background:transparent; color:#6b7280;
+      padding:.25rem .5rem;
+    }
+    .toggle-eye:focus-visible{ outline: 3px solid rgba(16,185,129,.35); border-radius:.5rem; }
+
+    /* Social buttons */
+    .btn-google{ background:#fff; border:1px solid #e5e7eb; }
+    .btn-google:hover{ background:#f9fafb; }
+    .btn-facebook{ background:#1877F2; border:1px solid #1877F2; color:#fff; }
+    .btn-facebook:hover{ background:#145dbb; color:#fff; }
+
+    /* Illustration panel */
+    .illustration{
+      background: radial-gradient(600px 300px at 20% 10%, rgba(16,185,129,.12), transparent 60%);
+      border-left:1px solid #e5e7eb;
+    }
+    @media (max-width: 991.98px){
+      .illustration{ border-left:0; border-top:1px solid #e5e7eb; }
+    }
+
+    /* Smooth interactions */
+    .btn, .form-control{ transition: box-shadow .2s ease, transform .08s ease; }
+    .btn:active{ transform: translateY(1px); }
+
+    /* Accessibility: custom focus ring */
+    :focus-visible{ outline: none !important; box-shadow: 0 0 0 3px rgba(16,185,129,.35) !important; border-radius:.5rem; }
+  </style>
+</head>
+<body>
+  <main class="auth-wrap container">
+    <div class="row g-0 justify-content-center w-100">
+      <div class="col-12 col-lg-10 col-xl-9 auth-card">
+        <div class="row g-0">
+          <!-- Left: Form -->
+          <div class="col-12 col-lg-6 p-4 p-md-5">
+            <div class="text-center mb-4">
+              <!-- App logo -->
+              <img class="brand-logo" src="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png" alt="AkwaabaTickets logo">
+            </div>
+            <div class="text-center mb-4">
+              <h1 class="h3 fw-bold mb-1">Welcome Back</h1>
+              <p class="text-muted mb-0">Log in to continue to your events</p>
+            </div>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <div class="mb-3">
+                  {% for category, msg in messages %}
+                    <div class="alert alert-{{ category }} mb-2" role="alert">{{ msg }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+
+            <!-- IMPORTANT: now posts to server -->
+            <form id="loginForm" method="post" action="/login" novalidate aria-describedby="formStatus">
+              <!-- Email or Phone -->
+              <div class="form-floating mb-3 position-relative">
+                <i class="bi bi-person"></i>
+                <input type="text" class="form-control" id="identifier" name="identifier"
+                       placeholder="Email or phone" required aria-describedby="idHelp"
+                       value="{{ identifier|default('') }}">
+                <label for="identifier">Email or Phone</label>
+                <div id="idHelp" class="form-text">Use the email or phone linked to your account.</div>
+                <div class="invalid-feedback">Enter a valid email or phone number.</div>
+              </div>
+
+              <!-- Password -->
+              <div class="form-floating mb-2 position-relative">
+                <i class="bi bi-lock"></i>
+                <input type="password" class="form-control" id="password" name="password"
+                       placeholder="Password" required aria-describedby="pwdHelp">
+                <label for="password">Password</label>
+                <button type="button" class="toggle-eye" id="togglePwd" aria-label="Show password">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <div id="pwdHelp" class="form-text">Keep your account secure.</div>
+                <div class="invalid-feedback">Please enter your password (8+ characters).</div>
+              </div>
+
+              <div class="d-flex justify-content-end mb-3">
+                <a href="#" class="small text-decoration-none">Forgot Password?</a>
+              </div>
+
+              <!-- Submit -->
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-brand btn-lg">
+                  <i class="bi bi-box-arrow-in-right me-2"></i>Log In
+                </button>
+                <p class="text-muted text-center mb-0">
+                  Don’t have an account? <a href="/signup" class="text-success text-decoration-none">Sign Up</a>
+                </p>
+              </div>
+
+              <!-- Divider -->
+              <div class="position-relative my-4 text-center">
+                <span class="text-muted small px-3 bg-white position-relative">or</span>
+                <hr class="position-absolute top-50 start-0 w-100 translate-middle-y m-0" />
+              </div>
+
+              <!-- Social Logins -->
+              <div class="d-grid gap-2">
+                <button type="button" class="btn btn-google btn-lg" aria-label="Continue with Google" disabled>
+                  <i class="bi bi-google me-2"></i>Continue with Google
+                </button>
+                <button type="button" class="btn btn-facebook btn-lg" aria-label="Continue with Facebook" disabled>
+                  <i class="bi bi-facebook me-2"></i>Continue with Facebook
+                </button>
+              </div>
+
+              <!-- live region for validation status -->
+              <div id="formStatus" class="visually-hidden" aria-live="polite"></div>
+            </form>
+          </div>
+
+          <!-- Right: Illustration -->
+          <div class="col-12 col-lg-6 p-4 p-md-5 illustration d-flex align-items-center">
+            <div class="w-100">
+              <div class="ratio ratio-16x9 rounded-4 border bg-white shadow-sm d-flex align-items-center justify-content-center mb-3">
+                <img src="https://www.ticketleap.com/wp-content/uploads/2023/10/crowd-of-people-at-concert-1024x683.jpeg" alt="People scanning tickets at an event" class="w-100 h-100 object-fit-cover rounded-4">
+              </div>
+              <p class="text-muted small mb-0">
+                Fast entry with secure QR scanning. Supports traditional payments and crypto via
+                <span class="badge text-bg-success align-middle">Base / USDT</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div><!-- /auth-card -->
+    </div>
+  </main>
+
+  <!-- Bootstrap bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Password eye toggle
+    (function(){
+      const pwd = document.getElementById('password');
+      const btn = document.getElementById('togglePwd');
+      btn.addEventListener('click', ()=>{
+        const isText = pwd.type === 'text';
+        pwd.type = isText ? 'password' : 'text';
+        btn.setAttribute('aria-label', isText ? 'Show password' : 'Hide password');
+        btn.innerHTML = isText ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+        pwd.focus();
+      });
+    })();
+
+    // Client-side validation (lets the form POST when valid)
+    (function(){
+      const form = document.getElementById('loginForm');
+      const idInput = document.getElementById('identifier');
+      const pwdInput = document.getElementById('password');
+      const status = document.getElementById('formStatus');
+
+      const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      const isPhone = v => /^[0-9+\-\s]{7,15}$/.test(v);
+      const validId = v => isEmail(v) || isPhone(v);
+      const validPwd = v => v.length >= 8;
+
+      function setValid(input){ input.classList.remove('is-invalid'); input.classList.add('is-valid'); }
+      function setInvalid(input){ input.classList.remove('is-valid'); input.classList.add('is-invalid'); }
+      function checkId(){ const ok = validId(idInput.value.trim()); ok ? setValid(idInput) : setInvalid(idInput); return ok; }
+      function checkPwd(){ const ok = validPwd(pwdInput.value); ok ? setValid(pwdInput) : setInvalid(pwdInput); return ok; }
+
+      idInput.addEventListener('input', checkId);
+      pwdInput.addEventListener('input', checkPwd);
+
+      form.addEventListener('submit', (e)=>{
+        const ok = checkId() && checkPwd();
+        if(!ok){
+          e.preventDefault();
+          status.textContent = 'Please fix the errors and try again.';
+          (idInput.classList.contains('is-invalid') ? idInput : pwdInput).focus();
+        } else {
+          // allow normal POST to /login
+          status.textContent = 'Submitting…';
+        }
+      });
+    })();
+  </script>
+  <script>
+  window.cbConfig = {
+    chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e"
+  };
+</script>
+<script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

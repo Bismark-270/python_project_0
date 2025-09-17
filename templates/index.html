@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AkwaabaTickets — Buy tickets. Skip the lines.</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Favicon -->
+  <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#10B981;
+      --brand-600:#0ea371;
+      --brand-700:#0a7f57;
+      --ink:#0b1b2b;
+      --muted:#64748b;
+      --card:#ffffff;
+      --bg:#f8fafc;
+      --ring: 2px solid rgba(16,185,129,.45);
+    }
+    [data-theme="dark"]{
+      --ink:#e5e7eb;
+      --muted:#a3a3a3;
+      --card:#111827;
+      --bg:#0b1220;
+    }
+    html { scroll-behavior: smooth; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--ink); background:var(--bg);
+    }
+
+    .scroll-progress{ position: fixed; top: 0; left: 0; height: 3px; width: 0; background: linear-gradient(90deg, var(--brand), #22c55e); z-index: 1080; }
+
+    .navbar { backdrop-filter: saturate(140%) blur(6px); }
+    .navbar-brand img{ height: 70px; width: auto; } /* bigger logo */
+    .btn-brand{
+      --bs-btn-bg: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-600); --bs-btn-hover-border-color: var(--brand-600);
+      --bs-btn-active-bg: var(--brand-700); --bs-btn-active-border-color: var(--brand-700);
+      color:#fff;
+    }
+    .btn-outline-brand{
+      --bs-btn-color: var(--brand); --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand); --bs-btn-hover-border-color: var(--brand);
+      --bs-btn-active-bg: var(--brand-700); --bs-btn-active-border-color: var(--brand-700);
+      color:var(--brand);
+    }
+
+    .promo{
+      background: linear-gradient(90deg, rgba(16,185,129,.15), rgba(34,197,94,.15));
+      border-bottom: 1px solid rgba(16,185,129,.25);
+    }
+
+    .hero{
+      position: relative;
+      background:
+        radial-gradient(1200px 500px at 75% -10%, rgba(16,185,129,.12), transparent),
+        radial-gradient(1200px 600px at -10% 20%, rgba(16,185,129,.08), transparent);
+    }
+    [data-theme="dark"] .hero{
+      background:
+        radial-gradient(1200px 500px at 75% -10%, rgba(16,185,129,.25), transparent),
+        radial-gradient(1200px 600px at -10% 20%, rgba(16,185,129,.18), transparent);
+    }
+    .badge-soft{ background: rgba(16,185,129,.12); color: var(--brand-700); border: 1px solid rgba(16,185,129,.25); }
+    [data-theme="dark"] .badge-soft{ color:#86efac; border-color: rgba(16,185,129,.45); }
+
+    .card{ border:1px solid #e2e8f0; box-shadow: 0 8px 24px rgba(2, 6, 23, .04); background: var(--card); }
+    [data-theme="dark"] .card{ border-color:#1f2937; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+    .rounded-xl{ border-radius: 1rem; }
+    .shadow-soft{ box-shadow: 0 10px 30px rgba(2,6,23,.08); }
+    .text-secondary{ color: var(--muted) !important; }
+
+    :focus-visible{ outline: none !important; box-shadow: 0 0 0 3px rgba(16,185,129,.35) !important; border-radius: .5rem; }
+
+    .reveal{ opacity:0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.show{ opacity:1; transform: none; }
+
+    .price-badge{ position:absolute; top:12px; left:12px; background: var(--brand); color:#fff; padding:.35rem .55rem; font-weight:600; border-radius:.5rem; }
+
+    .save-btn{ position:absolute; top:12px; right:12px; z-index:2; border:0; background:rgba(0,0,0,.05); width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+    [data-theme="dark"] .save-btn{ background:rgba(255,255,255,.06); }
+    .save-btn.active i{ color:#ef4444; }
+
+    /* Partners strip */
+    .partners{ background: linear-gradient(90deg, rgba(16,185,129,.08), transparent); border-top: 1px dashed rgba(16,185,129,.35); border-bottom: 1px dashed rgba(16,185,129,.35); }
+    .partner-logo{ display:flex; align-items:center; gap:.5rem; text-decoration:none; color:inherit; }
+    .partner-logo svg{ width:28px; height:28px; border-radius:50%; }
+
+    footer a{ color:inherit; text-decoration:none; } footer a:hover{ color:var(--brand); }
+    #toTop{ position: fixed; right: 16px; bottom: 16px; z-index: 1080; display:none; }
+  </style>
+</head>
+<body>
+
+  <!-- Scroll progress -->
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <!-- Promo -->
+  <div class="promo text-center py-2 small">
+    🎉 Early‑bird sale: <strong>20% off</strong> selected events — use code <code>AKW20</code>.
+    <a href="#events" class="ms-2 link-success fw-semibold">Browse now</a>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg bg-white sticky-top border-bottom" id="topNav">
+    <div class="container py-2">
+      <a class="navbar-brand d-flex align-items-center" href="#" aria-label="AkwaabaTickets Home">
+        <img src="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png" alt="AkwaabaTickets logo">
+      </a>
+
+      <div class="d-flex align-items-center gap-2 order-lg-2">
+        <button id="themeToggle" class="btn btn-outline-brand" type="button" aria-label="Toggle dark mode">
+          <i class="bi bi-moon-stars"></i>
+        </button>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </div>
+
+      <div id="nav" class="collapse navbar-collapse order-lg-1">
+        <ul class="navbar-nav me-auto ms-lg-3 gap-lg-2">
+          <li class="nav-item"><a class="nav-link" href="#events">Browse Events</a></li>
+          <li class="nav-item"><a class="nav-link" href="#organizers">Organizers</a></li>
+          <li class="nav-item"><a class="nav-link" href="#pricing">Pricing</a></li>
+          <li class="nav-item"><a class="nav-link" href="#faq">FAQ</a></li>
+          <li class="nav-item d-lg-none"><hr></li>
+          <li class="nav-item d-lg-none"><a class="nav-link" data-bs-toggle="offcanvas" href="#cartCanvas"><i class="bi bi-bag"></i> Saved Tickets</a></li>
+        </ul>
+        <div class="d-none d-lg-flex gap-2">
+          <a class="btn btn-outline-brand" href="/login">Sign In</a>
+          <a class="btn btn-brand" href="/signup">Create Event</a>
+          <button class="btn btn-outline-brand" data-bs-toggle="offcanvas" data-bs-target="#cartCanvas"><i class="bi bi-bag"></i></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Offcanvas: Saved tickets -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="cartCanvas" aria-labelledby="cartCanvasLabel">
+    <div class="offcanvas-header">
+      <h5 id="cartCanvasLabel">Saved Tickets</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul id="savedList" class="list-group small"></ul>
+      <div class="mt-3 d-grid">
+        <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#baseModal">
+          <i class="bi bi-wallet2 me-2"></i>Checkout (Base / USDT)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero pt-5 pb-4 pb-lg-5">
+    <div class="container">
+      <div class="row align-items-center g-4 g-lg-5">
+        <div class="col-lg-6">
+          <span class="badge badge-soft rounded-pill mb-3">Instant QR • Secure Payments</span>
+          <h1 class="display-5 fw-bold mb-3">Buy tickets. <span class="text-success">Skip the lines.</span></h1>
+          <p class="lead text-secondary mb-4">
+            Discover concerts, conferences, and festivals. Pay securely, get an instant QR ticket, and breeze through check‑in.
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/signup" class="btn btn-brand btn-lg px-4"><i class="bi bi-ticket-perforated-fill me-2"></i>Find Events</a>
+            <a href="/signup" class="btn btn-outline-brand btn-lg px-4">Create Event</a>
+          </div>
+          <div class="d-flex align-items-center gap-3 mt-4 text-muted small">
+            <i class="bi bi-shield-lock-fill"></i><span>Backed by modern security & QR validation</span>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+            <span class="badge rounded-pill text-bg-success">Partnered with Base</span>
+            <span class="badge rounded-pill text-bg-light text-success border border-success">USDT</span>
+            <span class="badge rounded-pill text-bg-light text-success border border-success">USDC</span>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card rounded-xl shadow-soft reveal">
+            <div class="row g-0 align-items-center">
+              <div class="col-6 p-4">
+                <div class="bg-light rounded-xl p-4 h-100 d-flex flex-column justify-content-center">
+                  <div class="text-center mb-3">
+                    <i class="bi bi-phone display-6 d-block mb-2"></i>
+                    <strong>Mobile QR Ticket</strong>
+                  </div>
+                  <ul class="list-unstyled small text-secondary mb-0">
+                    <li><i class="bi bi-check2 me-2 text-success"></i>One scan, you’re in</li>
+                    <li><i class="bi bi-check2 me-2 text-success"></i>Works offline at gate</li>
+                    <li><i class="bi bi-check2 me-2 text-success"></i>Transfer to friends</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-6 p-4 text-center">
+                <div class="ratio ratio-9x16 rounded-xl border d-flex align-items-center justify-content-center bg-white">
+                  <div class="text-center">
+                    <i class="bi bi-qr-code display-3"></i>
+                    <p class="mt-2 mb-0 small text-secondary">QR Mockup</p>
+                  </div>
+                </div>
+                <p class="small mt-3 text-secondary">Show this QR at the entrance to check in.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- row -->
+    </div>
+  </section>
+
+  <!-- Partners / Base band (Base.org ONLY) -->
+  <section class="partners py-3">
+    <div class="container d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <a class="partner-logo" href="https://base.org" target="_blank" rel="noopener">
+          <!-- Inline Base logo: blue circle with white dash -->
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="32" fill="#0052FF"></circle>
+            <rect x="18" y="29.5" width="28" height="5" rx="2.5" fill="#FFFFFF"></rect>
+          </svg>
+          <span class="fw-semibold">Base.org</span>
+        </a>
+        <span class="small text-secondary">Fast, low‑fee crypto payments on Base</span>
+      </div>
+      <button class="btn btn-outline-brand btn-sm" data-bs-toggle="modal" data-bs-target="#baseModal">
+        <i class="bi bi-info-circle me-1"></i>How Base checkout works
+      </button>
+    </div>
+  </section>
+
+  <!-- FILTER BAR + EVENT GRID -->
+  <section id="events" class="py-5">
+    <div class="container">
+      <div class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3 mb-4">
+        <div>
+          <h2 class="h3 fw-bold mb-1">Explore Events</h2>
+          <p class="text-secondary mb-0">Concerts, meetups, workshops—find your vibe.</p>
+        </div>
+        <form id="filterForm" class="row gy-2 gx-2">
+          <div class="col-12 col-md">
+            <label for="category" class="form-label small text-muted mb-1">Category</label>
+            <select id="category" class="form-select">
+              <option value="">All</option>
+              <option>Concert</option>
+              <option>Tech</option>
+              <option>Workshop</option>
+              <option>Festival</option>
+            </select>
+          </div>
+          <div class="col-12 col-md">
+            <label for="city" class="form-label small text-muted mb-1">City</label>
+            <select id="city" class="form-select">
+              <option value="">Any</option>
+              <option>Accra</option>
+              <option>Kumasi</option>
+              <option>Takoradi</option>
+              <option>Tamale</option>
+            </select>
+          </div>
+          <div class="col-12 col-md">
+            <label for="date" class="form-label small text-muted mb-1">Date</label>
+            <input id="date" type="date" class="form-control">
+          </div>
+          <div class="col-12 col-md-auto">
+            <label class="form-label d-block small text-muted mb-1">&nbsp;</label>
+            <button class="btn btn-outline-brand w-100" type="submit"><i class="bi bi-funnel me-2"></i>Filter</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="row g-4" id="eventGrid">
+        <!-- (Event cards unchanged) -->
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Concert" data-city="Accra" data-date="2025-09-04">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 120</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop" alt="Live concert">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Live in Accra: Night Beats</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Accra • National Theatre</p>
+              <p class="small text-muted mb-3">Thu, 4 Sep 2025</p>
+              <div class="d-grid">
+                <a href="#" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Tech" data-city="Kumasi" data-date="2025-10-12">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 80</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1200&auto=format&fit=crop" alt="Tech summit">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Kumasi Tech Summit</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Kumasi • KNUST Great Hall</p>
+              <p class="small text-muted mb-3">Sun, 12 Oct 2025</p>
+              <div class="d-grid">
+                <a href="#" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Workshop" data-city="Accra" data-date="2025-09-20">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 150</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1200&auto=format&fit=crop" alt="Workshop">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Design Thinking Workshop</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Accra • Impact Hub</p>
+              <p class="small text-muted mb-3">Sat, 20 Sep 2025</p>
+              <div class="d-grid">
+                <a href="/login" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Festival" data-city="Takoradi" data-date="2025-12-26">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 60</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1508609349937-5ec4ae374ebf?q=80&w=1200&auto=format&fit=crop" alt="Festival">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Takoradi Street Festival</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Takoradi • Main Square</p>
+              <p class="small text-muted mb-3">Fri, 26 Dec 2025</p>
+              <div class="d-grid">
+                <a href="/login" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Tech" data-city="Accra" data-date="2025-09-10">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 100</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop" alt="Hackathon">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Base Hack Night</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Accra • Stanbic Incubator</p>
+              <p class="small text-muted mb-3">Wed, 10 Sep 2025</p>
+              <div class="d-grid">
+                <a href="/login" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 event-card reveal" data-category="Workshop" data-city="Tamale" data-date="2025-11-02">
+          <div class="card h-100 rounded-xl position-relative overflow-hidden">
+            <button class="save-btn" aria-label="Save event"><i class="bi bi-heart"></i></button>
+            <span class="price-badge">GHS 70</span>
+            <img class="card-img-top" src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=1200&auto=format&fit=crop" alt="Workshop">
+            <div class="card-body">
+              <h3 class="h6 fw-bold mb-1">Startup 101 Bootcamp</h3>
+              <p class="small text-secondary mb-2"><i class="bi bi-geo-alt"></i> Tamale • Innovation Hub</p>
+              <p class="small text-muted mb-3">Sun, 2 Nov 2025</p>
+              <div class="d-grid">
+                <a href="/login" class="btn btn-brand">Get Ticket</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /row -->
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="py-5 bg-white">
+    <div class="container">
+      <h2 class="h3 fw-bold text-center mb-4">How it works</h2>
+      <div class="row g-4">
+        <div class="col-md-4 reveal">
+          <div class="h-100 p-4 border rounded-xl bg-light">
+            <div class="mb-2"><i class="bi bi-search display-6 text-success"></i></div>
+            <h3 class="h6 fw-bold">Discover</h3>
+            <p class="text-secondary small mb-0">Browse curated events by category, city, or date.</p>
+          </div>
+        </div>
+        <div class="col-md-4 reveal">
+          <div class="h-100 p-4 border rounded-xl bg-light">
+            <div class="mb-2"><i class="bi bi-credit-card-2-front display-6 text-success"></i></div>
+            <h3 class="h6 fw-bold">Pay</h3>
+            <p class="text-secondary small mb-0">Secure checkout with instant ticket delivery.</p>
+          </div>
+        </div>
+        <div class="col-md-4 reveal">
+          <div class="h-100 p-4 border rounded-xl bg-light">
+            <div class="mb-2"><i class="bi bi-qr-code-scan display-6 text-success"></i></div>
+            <h3 class="h6 fw-bold">Scan</h3>
+            <p class="text-secondary small mb-0">Show your QR at the gate and walk right in.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOR ORGANIZERS -->
+  <section id="organizers" class="py-5">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-6 order-lg-2">
+          <div class="ratio ratio-16x9 rounded-xl border bg-white d-flex align-items-center justify-content-center">
+            <div class="text-center p-4">
+              <i class="bi bi-bar-chart-line-fill display-5 text-success"></i>
+              <p class="mt-2 mb-0 text-secondary small">Analytics, payouts, ticket tiers & promo codes—built in.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6 order-lg-1">
+          <span class="badge badge-soft rounded-pill mb-2">For organizers</span>
+          <h2 class="h4 fw-bold mb-3">Sell out your event with confidence</h2>
+          <ul class="list-unstyled text-secondary">
+            <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Create events with ticket tiers & limits</li>
+            <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Fast payouts and transparent fees</li>
+            <li class="mb-2"><i class="bi bi-check2 text-success me-2"></i>Real‑time sales & check‑in analytics</li>
+          </ul>
+          <a href="/signup" class="btn btn-brand mt-2">Start as Organizer</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING / TRUST BAR -->
+  <section id="pricing" class="py-5 bg-white">
+    <div class="container">
+      <div class="d-flex flex-column flex-lg-row align-items-center justify-content-between gap-3 mb-4">
+        <div>
+          <h2 class="h4 fw-bold mb-1">Simple pricing</h2>
+          <p class="text-secondary mb-0">Pay as you sell—no monthly commitments.</p>
+        </div>
+        <div class="text-secondary small">Contact sales for custom plans</div>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-6 reveal">
+          <div class="card rounded-xl h-100">
+            <div class="card-body">
+              <h3 class="h5 fw-bold">Standard</h3>
+              <p class="text-secondary">Great for most events</p>
+              <div class="display-6 fw-bold text-success mb-2">3.5% + GHS 2</div>
+              <ul class="list-unstyled text-secondary mb-4">
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Instant QR tickets</li>
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Basic analytics</li>
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Email support</li>
+              </ul>
+              <a href="#" class="btn btn-outline-brand">Choose Standard</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 reveal">
+          <div class="card rounded-xl h-100 border-2">
+            <div class="card-body">
+              <h3 class="h5 fw-bold">Pro</h3>
+              <p class="text-secondary">For frequent organizers</p>
+              <div class="display-6 fw-bold text-success mb-2">2.9% + GHS 1.5</div>
+              <ul class="list-unstyled text-secondary mb-4">
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Advanced analytics</li>
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Priority support</li>
+                <li class="mb-2"><i class="bi bi-check2 me-2 text-success"></i>Promo codes & airdrops</li>
+              </ul>
+              <a href="#" class="btn btn-brand">Choose Pro</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trust Bar -->
+      <div class="text-center mt-5">
+        <p class="text-muted small mb-3">Trusted by teams & partners</p>
+        <div class="d-flex flex-wrap justify-content-center align-items-center gap-4 opacity-75">
+          <a class="partner-logo" href="https://base.org" target="_blank" rel="noopener" title="Base.org">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="32" r="32" fill="#0052FF"></circle>
+              <rect x="18" y="29.5" width="28" height="5" rx="2.5" fill="#FFFFFF"></rect>
+            </svg>
+            <span class="fw-semibold">Base</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS (unchanged) -->
+  <section class="py-5">
+    <div class="container">
+      <h2 class="h4 fw-bold text-center mb-4">Loved by attendees & organizers</h2>
+      <div class="row g-4">
+        <div class="col-md-4 reveal">
+          <div class="card h-100 rounded-xl p-3">
+            <div class="d-flex align-items-center gap-3">
+              <div class="bg-success-subtle rounded-circle p-3"><i class="bi bi-emoji-smile"></i></div>
+              <div>
+                <strong>Ama K.</strong><div class="small text-secondary">Accra</div>
+              </div>
+            </div>
+            <p class="mt-3 mb-2 text-secondary small">“Check‑in took 5 seconds. Best experience ever.”</p>
+            <div class="text-warning" aria-label="5 stars">
+              <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 reveal">
+          <div class="card h-100 rounded-xl p-3">
+            <div class="d-flex align-items-center gap-3">
+              <div class="bg-success-subtle rounded-circle p-3"><i class="bi bi-briefcase"></i></div>
+              <div>
+                <strong>Yaw Events</strong><div class="small text-secondary">Kumasi</div>
+              </div>
+            </div>
+            <p class="mt-3 mb-2 text-secondary small">“We sold out in 48 hours with clear analytics.”</p>
+            <div class="text-warning" aria-label="5 stars">
+              <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-half"></i>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4 reveal">
+          <div class="card h-100 rounded-xl p-3">
+            <div class="d-flex align-items-center gap-3">
+              <div class="bg-success-subtle rounded-circle p-3"><i class="bi bi-people"></i></div>
+              <div>
+                <strong>Team Vibe</strong><div class="small text-secondary">Takoradi</div>
+              </div>
+            </div>
+            <p class="mt-3 mb-2 text-secondary small">“Smooth payouts and quick support. We’re staying.”</p>
+            <div class="text-warning" aria-label="4 stars">
+              <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-5 bg-white">
+    <div class="container">
+      <h2 class="h4 fw-bold text-center mb-4">FAQ</h2>
+      <div class="accordion" id="faqAcc">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q1">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#a1" aria-expanded="true" aria-controls="a1">
+              How do I get my ticket?
+            </button>
+          </h2>
+          <div id="a1" class="accordion-collapse collapse show" data-bs-parent="#faqAcc" aria-labelledby="q1">
+            <div class="accordion-body">
+              Tickets are delivered instantly to your email and dashboard with a QR code for entry.
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q2">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a2" aria-expanded="false" aria-controls="a2">
+              Can I transfer my ticket?
+            </button>
+          </h2>
+        <div id="a2" class="accordion-collapse collapse" data-bs-parent="#faqAcc" aria-labelledby="q2">
+            <div class="accordion-body">
+              Yes—send your ticket to a friend from your orders page. They’ll get a fresh QR code.
+            </div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q3">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a3" aria-expanded="false" aria-controls="a3">
+              What payment options do you support?
+            </button>
+          </h2>
+          <div id="a3" class="accordion-collapse collapse" data-bs-parent="#faqAcc" aria-labelledby="q3">
+            <div class="accordion-body">
+              We support multiple local methods and cards. Organizers can enable what fits their audience.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEWSLETTER (wired to /subscribe + success modal) -->
+  <section class="py-5">
+    <div class="container">
+      <div class="row g-3 align-items-center">
+        <div class="col-lg-6">
+          <h2 class="h4 fw-bold mb-2">Get event drops in your inbox</h2>
+          <p class="text-secondary mb-0">Be first to know about hot tickets and exclusive presales.</p>
+        </div>
+        <div class="col-lg-6">
+          <div id="subResult" class="alert d-none mb-2" role="alert"></div>
+          <form id="subForm" class="d-flex gap-2" action="/subscribe" method="post">
+            <label for="subEmail" class="visually-hidden">Email address</label>
+            <input id="subEmail" name="email" type="email" required class="form-control form-control-lg" placeholder="you@example.com" />
+            <input type="hidden" name="source" value="homepage">
+            <button class="btn btn-brand btn-lg px-4" type="submit">Subscribe</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-5 bg-white border-top">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <img src="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png" alt="" width="36" height="36" class="rounded-2">
+            <strong>AkwaabaTickets</strong>
+          </div>
+          <p class="text-secondary small">Welcome to borderless events—discover, pay, and scan with ease.</p>
+        </div>
+        <div class="col-6 col-md-2">
+          <h6 class="fw-bold">Product</h6>
+          <ul class="list-unstyled small">
+            <li><a href="#events">Browse Events</a></li>
+            <li><a href="#organizers">For Organizers</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#faq">FAQ</a></li>
+          </ul>
+        </div>
+        <div class="col-6 col-md-2">
+          <h6 class="fw-bold">Company</h6>
+          <ul class="list-unstyled small">
+            <li><a href="#">About</a></li>
+            <li><a href="#">Partners</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Press</a></li>
+          </ul>
+        </div>
+        <div class="col-md-4">
+          <h6 class="fw-bold">Follow</h6>
+          <div class="d-flex gap-3">
+            <a href="#" aria-label="Twitter"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+          </div>
+        </div>
+      </div>
+      <hr class="my-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between small text-secondary">
+        <span>© <span id="year"></span> AkwaabaTickets. All rights reserved.</span>
+        <div class="d-flex gap-3">
+          <a href="#">Privacy</a>
+          <a href="#">Terms</a>
+          <a href="#">Cookies</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal: Base payments explainer -->
+  <div class="modal fade" id="baseModal" tabindex="-1" aria-labelledby="baseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 id="baseModalLabel" class="modal-title">Checkout with Base / USDT</h5>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body small">
+          <p>We partner with <strong>Base</strong> to enable fast, low‑fee crypto payments. Pay with <strong>USDT</strong> or <strong>USDC</strong> from a compatible wallet.</p>
+          <ol class="mb-2">
+            <li>Connect your wallet (Coinbase Wallet/MetaMask).</li>
+            <li>Select USDT or USDC on Base network.</li>
+            <li>Confirm transaction — tickets issue instantly with QR.</li>
+          </ol>
+          <div class="alert alert-success mb-0"><i class="bi bi-info-circle me-2"></i>Wire this to your real checkout route later.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
+          <a href="/login" class="btn btn-brand"><i class="bi bi-wallet2 me-1"></i>Connect Wallet</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Subscription confirmation -->
+  <div class="modal fade" id="subConfirmModal" tabindex="-1" aria-labelledby="subConfirmLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 id="subConfirmLabel" class="modal-title">You're in! 🎉</h5>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Thanks for subscribing, <span id="subEmailEcho" class="fw-semibold"></span>.</p>
+          <p class="mb-0 text-secondary small">We’ll send you fresh drops, presales, and exclusive offers. You can unsubscribe anytime from any email.</p>
+        </div>
+        <div class="modal-footer border-0">
+          <button class="btn btn-brand" data-bs-dismiss="modal">Great!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back to top -->
+  <button id="toTop" class="btn btn-brand rounded-circle p-3" aria-label="Back to top">
+    <i class="bi bi-arrow-up"></i>
+  </button>
+
+  <!-- JS: Bootstrap & helpers -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Theme (dark / light)
+    (function(){
+      const stored = localStorage.getItem('akw-theme');
+      if(stored){ document.documentElement.setAttribute('data-theme', stored); }
+      else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+        document.documentElement.setAttribute('data-theme','dark');
+      }
+    })();
+    document.getElementById('themeToggle').addEventListener('click', ()=>{
+      const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', current);
+      localStorage.setItem('akw-theme', current);
+    });
+
+    // Current year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Reveal on scroll
+    const observer = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){ e.target.classList.add('show'); observer.unobserve(e.target); }
+      });
+    }, { threshold: .15 });
+    document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+    // Filter (client-side demo)
+    const grid = document.getElementById('eventGrid');
+    const formFilter = document.getElementById('filterForm');
+    formFilter.addEventListener('submit', (ev)=>{
+      ev.preventDefault();
+      const cat = document.getElementById('category').value;
+      const city = document.getElementById('city').value;
+      const date = document.getElementById('date').value;
+      grid.querySelectorAll('.event-card').forEach(card=>{
+        const okCat = !cat || card.dataset.category === cat;
+        const okCity = !city || card.dataset.city === city;
+        const okDate = !date || card.dataset.date === date;
+        card.style.display = (okCat && okCity && okDate) ? '' : 'none';
+      });
+    });
+
+    // Scroll progress + back to top
+    const progress = document.getElementById('scrollProgress');
+    const toTop = document.getElementById('toTop');
+    window.addEventListener('scroll', ()=>{
+      const scrolled = window.scrollY;
+      const height = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = ((scrolled / height) * 100) + '%';
+      toTop.style.display = scrolled > 480 ? 'inline-flex' : 'none';
+    });
+    toTop.addEventListener('click', ()=> window.scrollTo({top:0, behavior:'smooth'}));
+
+    // Save event hearts
+    const savedKey = 'akw-saved-events';
+    const saved = new Set(JSON.parse(localStorage.getItem(savedKey) || '[]'));
+    document.querySelectorAll('.event-card').forEach((card, idx)=>{
+      const id = 'event-'+idx;
+      const btn = card.querySelector('.save-btn');
+      if(saved.has(id)){ btn.classList.add('active'); btn.querySelector('i').className = 'bi bi-heart-fill'; }
+      btn.addEventListener('click', ()=>{
+        btn.classList.toggle('active');
+        const icon = btn.querySelector('i');
+        if(btn.classList.contains('active')){ saved.add(id); icon.className='bi bi-heart-fill'; }
+        else { saved.delete(id); icon.className='bi bi-heart'; }
+        localStorage.setItem(savedKey, JSON.stringify(Array.from(saved)));
+        renderSaved();
+      });
+    });
+    function renderSaved(){
+      const list = document.getElementById('savedList');
+      list.innerHTML = '';
+      const items = Array.from(saved);
+      if(!items.length){
+        list.innerHTML = '<li class="list-group-item">No saved tickets yet.</li>';
+        return;
+      }
+      items.forEach(key=>{
+        const idx = parseInt(key.split('-')[1],10);
+        const card = document.querySelectorAll('.event-card')[idx];
+        const title = card.querySelector('h3').textContent;
+        const city  = card.querySelector('.bi-geo-alt').parentElement.textContent.trim();
+        const price = card.querySelector('.price-badge').textContent;
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center justify-content-between';
+        li.innerHTML = `<span class="me-2">${title} <span class="text-muted">• ${city}</span> <span class="ms-2 badge text-bg-success">${price}</span></span>
+                        <button class="btn btn-sm btn-outline-brand">Remove</button>`;
+        li.querySelector('button').addEventListener('click', ()=>{
+          saved.delete(key);
+          localStorage.setItem(savedKey, JSON.stringify(Array.from(saved)));
+          document.querySelectorAll('.save-btn')[idx].classList.remove('active');
+          document.querySelectorAll('.save-btn i')[idx].className='bi bi-heart';
+          renderSaved();
+        });
+        list.appendChild(li);
+      });
+    }
+    renderSaved();
+
+    // Newsletter subscribe -> show confirmation modal on success
+    (function(){
+      const form = document.getElementById('subForm');
+      const email = document.getElementById('subEmail');
+      const result = document.getElementById('subResult');
+      const emailEcho = document.getElementById('subEmailEcho');
+      const modalEl = document.getElementById('subConfirmModal');
+      const SubModal = bootstrap.Modal;
+
+      function showInline(ok, text){
+        result.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
+        result.textContent = text;
+        result.classList.remove('d-none');
+      }
+
+      form.addEventListener('submit', async (e)=>{
+        // Progressive enhancement: if JS fails, server will handle POST
+        e.preventDefault();
+        const val = (email.value || '').trim();
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)){
+          showInline(false, 'Enter a valid email address.');
+          email.focus();
+          return;
+        }
+        try{
+          const fd = new FormData(form);
+          const res = await fetch('/subscribe', { method: 'POST', headers: { 'Accept': 'application/json' }, body: fd });
+          const data = await res.json().catch(()=> ({}));
+          if(res.ok && data.ok){
+            result.classList.add('d-none');
+            emailEcho.textContent = val;
+            form.reset();
+            new SubModal(modalEl).show();
+          }else{
+            showInline(false, (data && data.message) || 'Could not subscribe. Try again.');
+          }
+        }catch(_){
+          showInline(false, 'Network error. Please try again.');
+        }
+      });
+    })();
+  </script>
+
+  <!-- Chat widget -->
+  <script>
+    window.cbConfig = { chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e" };
+  </script>
+  <script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>

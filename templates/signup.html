@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AkwaabaTickets — Create Your Account</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="icon" href="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png">
+
+  <style>
+    :root{
+      --brand:#10B981;
+      --brand-600:#0ea371;
+      --brand-700:#0a7f57;
+      --ink:#0b1b2b;
+      --muted:#6b7280;
+      --card:#ffffff;
+    }
+
+    html, body { height: 100%; }
+    body{
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,.18), transparent 60%),
+        linear-gradient(180deg, rgba(16,185,129,.10), #ffffff 35%);
+      --wm: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2310B981' fill-opacity='.08'%3E%3Cpath d='M20 20h24v10a5 5 0 110 10v10H20V40a5 5 0 110-10V20z'/%3E%3Ccircle cx='90' cy='26' r='6'/%3E%3Crect x='78' y='60' width='28' height='18' rx='4'/%3E%3Ccircle cx='30' cy='90' r='4'/%3E%3C/g%3E%3C/svg%3E");
+      background-image: var(--wm), radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,.18), transparent 60%), linear-gradient(180deg, rgba(16,185,129,.10), #ffffff 35%);
+      background-repeat: repeat, no-repeat, no-repeat;
+      background-size: 240px 240px, cover, cover;
+    }
+
+    .auth-wrap{ min-height:100%; display:flex; align-items:center; padding-block:4rem; }
+    .auth-card{
+      background:var(--card);
+      border:1px solid #e5e7eb;
+      border-radius: 1rem;
+      box-shadow: 0 12px 32px rgba(2,6,23,.08);
+      overflow:hidden;
+    }
+    .brand-logo{ height: 64px; width:auto; }
+
+    /* Buttons */
+    .btn-brand{
+      --bs-btn-bg: var(--brand);
+      --bs-btn-border-color: var(--brand);
+      --bs-btn-hover-bg: var(--brand-600);
+      --bs-btn-hover-border-color: var(--brand-600);
+      --bs-btn-active-bg: var(--brand-700);
+      --bs-btn-active-border-color: var(--brand-700);
+      color:#fff;
+    }
+
+    /* Input icons */
+    .form-floating > .bi{
+      position:absolute; left:12px; top:50%; transform:translateY(-50%);
+      pointer-events:none; color:#9ca3af; z-index:2;
+    }
+    .form-floating > .form-control{ padding-left: 2.35rem; }
+    .form-floating>label{ left: 2.35rem; }
+
+    /* Role cards */
+    .role-card{
+      border:1.5px solid #e5e7eb; border-radius: 1rem; background:#fff;
+      padding:1rem; cursor:pointer; height:100%;
+      transition: box-shadow .2s ease, transform .08s ease, border-color .2s ease, background .2s ease;
+    }
+    .role-card:hover{ box-shadow: 0 10px 30px rgba(2,6,23,.08); }
+    .role-card.active{ border-color: var(--brand); box-shadow: 0 10px 30px rgba(16,185,129,.18); background: linear-gradient(180deg, rgba(16,185,129,.06), #fff); }
+    .role-card .icon{
+      width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center;
+      border-radius:12px; background: rgba(16,185,129,.12); color: var(--brand-700);
+    }
+    .role-radio{ position: absolute; opacity: 0; pointer-events: none; }
+
+    /* Illustration */
+    .illustration{
+      background: radial-gradient(600px 300px at 20% 10%, rgba(16,185,129,.12), transparent 60%);
+      border-left:1px solid #e5e7eb;
+    }
+    @media (max-width: 991.98px){
+      .illustration{ border-left:0; border-top:1px solid #e5e7eb; }
+    }
+
+    /* Smooth interactions + focus ring */
+    .btn, .form-control, .role-card{ transition: box-shadow .2s ease, transform .08s ease; }
+    .btn:active, .role-card:active{ transform: translateY(1px); }
+    :focus-visible{ outline:none !important; box-shadow: 0 0 0 3px rgba(16,185,129,.35) !important; border-radius:.5rem; }
+  </style>
+</head>
+<body>
+  <main class="auth-wrap container">
+    <div class="row g-0 justify-content-center w-100">
+      <div class="col-12 col-lg-10 col-xl-9 auth-card">
+        <div class="row g-0">
+          <!-- Left: Form -->
+          <div class="col-12 col-lg-6 p-4 p-md-5">
+
+            <!-- Brand -->
+            <div class="text-center mb-4">
+              <img class="brand-logo" src="https://res.cloudinary.com/dglubbbfb/image/upload/v1755834123/logo_hlxw5e.png" alt="AkwaabaTickets logo">
+            </div>
+            <div class="text-center mb-3">
+              <h1 class="h3 fw-bold mb-1">Create Your Account</h1>
+              <p class="text-muted mb-0">Join events faster with instant QR tickets and secure checkout.</p>
+            </div>
+
+            <!-- Flash messages -->
+            {% with msgs = get_flashed_messages(with_categories=true) %}
+            {% if msgs %}
+              <div class="mb-3">
+                {% for category, message in msgs %}
+                  <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Signup form -->
+            <form id="signupForm" method="post" action="/signup" novalidate>
+              <!-- Role chooser -->
+              <fieldset class="mb-4" aria-labelledby="roleLegend">
+                <legend id="roleLegend" class="small text-uppercase text-muted mb-2">I’m signing up as</legend>
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="role-card d-block {{ 'active' if (role or '') == 'organizer' else '' }}"
+                           tabindex="0" role="radio"
+                           aria-checked="{{ 'true' if (role or '') == 'organizer' else 'false' }}"
+                           aria-labelledby="orgLbl">
+                      <input type="radio" name="role" value="organizer" class="role-radio"
+                             id="roleOrganizer" aria-hidden="true" required
+                             {{ 'checked' if (role or '') == 'organizer' else '' }}>
+                      <div class="d-flex align-items-start gap-3">
+                        <span class="icon"><i class="bi bi-megaphone"></i></span>
+                        <div>
+                          <div id="orgLbl" class="fw-semibold">Organizer</div>
+                          <div class="small text-muted">Sell tickets, manage payouts & check-ins.</div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                  <div class="col-6">
+                    <label class="role-card d-block {{ 'active' if (role or '') == 'attendee' else '' }}"
+                           tabindex="0" role="radio"
+                           aria-checked="{{ 'true' if (role or '') == 'attendee' else 'false' }}"
+                           aria-labelledby="attLbl">
+                      <input type="radio" name="role" value="attendee" class="role-radio"
+                             id="roleAttendee" aria-hidden="true" required
+                             {{ 'checked' if (role or '') == 'attendee' else '' }}>
+                      <div class="d-flex align-items-start gap-3">
+                        <span class="icon"><i class="bi bi-ticket-perforated"></i></span>
+                        <div>
+                          <div id="attLbl" class="fw-semibold">Attendee</div>
+                          <div class="small text-muted">Discover events & store QR tickets.</div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div id="roleError" class="invalid-feedback d-block mt-2" style="display:none;" aria-live="polite">
+                  Please choose Organizer or Attendee.
+                </div>
+              </fieldset>
+
+              <!-- Full Name -->
+              <div class="form-floating mb-3 position-relative">
+                <i class="bi bi-person"></i>
+                <input type="text" class="form-control" id="fullName" name="fullName"
+                       placeholder="Full Name" required aria-describedby="nameHelp"
+                       value="{{ fullName|default('', true) }}">
+                <label for="fullName">Full Name</label>
+                <div id="nameHelp" class="form-text">Use your real name for check-in.</div>
+                <div class="invalid-feedback">Please enter your full name (min 2 characters).</div>
+              </div>
+
+              <!-- Email -->
+              <div class="form-floating mb-3 position-relative">
+                <i class="bi bi-envelope"></i>
+                <input type="email" class="form-control" id="email" name="email"
+                       placeholder="name@example.com" required
+                       value="{{ email|default('', true) }}">
+                <label for="email">Email</label>
+                <div class="invalid-feedback">Enter a valid email address.</div>
+              </div>
+
+              <!-- Phone -->
+              <div class="form-floating mb-3 position-relative">
+                <i class="bi bi-telephone"></i>
+                <input type="tel" class="form-control" id="phone" name="phone"
+                       placeholder="Phone Number" required inputmode="tel" aria-describedby="phoneHelp"
+                       value="{{ phone|default('', true) }}">
+                <label for="phone">Phone Number</label>
+                <div id="phoneHelp" class="form-text">Include country code if outside Ghana.</div>
+                <div class="invalid-feedback">Enter a valid phone number (7–15 digits).</div>
+              </div>
+
+              <!-- Password -->
+              <div class="form-floating mb-3 position-relative">
+                <i class="bi bi-lock"></i>
+                <input type="password" class="form-control" id="password" name="password"
+                       placeholder="Password" required aria-describedby="pwdHelp">
+                <label for="password">Password</label>
+                <div id="pwdHelp" class="form-text">At least 8 chars, 1 letter & 1 number.</div>
+                <div class="invalid-feedback">Password must be 8+ chars with letters & numbers.</div>
+              </div>
+
+              <!-- Confirm Password -->
+              <div class="form-floating mb-4 position-relative">
+                <i class="bi bi-lock-fill"></i>
+                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword"
+                       placeholder="Confirm Password" required>
+                <label for="confirmPassword">Confirm Password</label>
+                <div class="invalid-feedback">Passwords do not match.</div>
+              </div>
+
+              <!-- Submit -->
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-brand btn-lg">
+                  <i class="bi bi-person-plus me-2"></i>Sign Up
+                </button>
+                <a href="/login" class="text-muted text-decoration-none text-center">
+                  Already have an account? <span class="text-success">Sign in</span>
+                </a>
+              </div>
+            </form>
+          </div>
+
+          <!-- Right: Illustration -->
+          <div class="col-12 col-lg-6 p-4 p-md-5 illustration d-flex align-items-center">
+            <div class="w-100">
+              <div class="ratio ratio-16x9 rounded-4 border bg-white shadow-sm d-flex align-items-center justify-content-center mb-3">
+                <img src="https://media.istockphoto.com/id/1211654910/photo/happy-woman-in-yellow-shirt-smiles-with-a-passport-with-tickets-and-shows-victory-gesture.jpg?s=612x612&w=0&k=20&c=iGfjBwN93SiZMFT746NO3eY2dBa_4iojfgm8Py5m1Cg=" alt="People at a concert holding tickets" class="w-100 h-100 object-fit-cover rounded-4">
+              </div>
+              <p class="text-muted small mb-0">
+                Secure checkout supports traditional methods and crypto with
+                <span class="badge text-bg-success align-middle">Base / USDT</span>.
+                Your tickets are issued instantly with a QR code for fast entry.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div><!-- /auth-card -->
+    </div>
+  </main>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Role card interactions + form validation
+    (function(){
+      const form = document.getElementById('signupForm');
+      const cards = document.querySelectorAll('.role-card');
+      const radios = document.querySelectorAll('.role-radio');
+      const roleError = document.getElementById('roleError');
+
+      function updateActiveFromChecked() {
+        cards.forEach((card, i) => {
+          const r = radios[i];
+          const on = r.checked;
+          card.classList.toggle('active', on);
+          card.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+      }
+
+      // Click/keyboard selection on the cards
+      cards.forEach((card, i) => {
+        const r = radios[i];
+        const choose = () => { r.checked = true; roleError.style.display = 'none'; updateActiveFromChecked(); };
+        card.addEventListener('click', choose);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); }
+        });
+      });
+
+      // Also react if user clicks the radio
+      radios.forEach(r => r.addEventListener('change', () => {
+        roleError.style.display = 'none';
+        updateActiveFromChecked();
+      }));
+
+      // Initialize from server-rendered checked state
+      updateActiveFromChecked();
+
+      // Client-side validation
+      const fields = {
+        fullName: document.getElementById('fullName'),
+        email: document.getElementById('email'),
+        phone: document.getElementById('phone'),
+        password: document.getElementById('password'),
+        confirmPassword: document.getElementById('confirmPassword')
+      };
+      const validators = {
+        fullName: v => v.trim().length >= 2,
+        email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+        phone: v => /^[0-9+\-\s]{7,15}$/.test(v),
+        password: v => /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(v),
+        confirmPassword: (v, pwd) => v === pwd && v.length > 0
+      };
+      function setValid(el){ el.classList.remove('is-invalid'); el.classList.add('is-valid'); }
+      function setInvalid(el){ el.classList.remove('is-valid'); el.classList.add('is-invalid'); }
+      function checkField(input){
+        const id = input.id, v = input.value;
+        const ok =
+          (id==='fullName' && validators.fullName(v)) ||
+          (id==='email' && validators.email(v)) ||
+          (id==='phone' && validators.phone(v)) ||
+          (id==='password' && validators.password(v)) ||
+          (id==='confirmPassword' && validators.confirmPassword(v, fields.password.value));
+        ok ? setValid(input) : setInvalid(input);
+        return ok;
+      }
+      Object.values(fields).forEach(i=>{
+        i.addEventListener('input', ()=>checkField(i));
+        i.addEventListener('blur', ()=>checkField(i));
+      });
+
+      form.addEventListener('submit', (e)=>{
+        // Show role error if none selected (browser will also enforce due to required)
+        const anyRoleChecked = Array.from(radios).some(r => r.checked);
+        if (!anyRoleChecked) {
+          roleError.style.display = 'block';
+          e.preventDefault();
+          cards[0].focus();
+          return;
+        }
+        const ok = Object.values(fields).map(checkField).every(Boolean);
+        if (!ok) {
+          e.preventDefault();
+          const firstInvalid = Object.values(fields).find(x => x.classList.contains('is-invalid'));
+          firstInvalid?.focus();
+        }
+      });
+    })();
+  </script>
+
+  <!-- Chat widget -->
+  <script>
+    window.cbConfig = { chatId: "0607a799-b5e6-484e-afb2-482ff18b5b4e" };
+  </script>
+  <script src="https://app.chatbit.co/embed.min.js" defer></script>
+</body>
+</html>
