@@ -1,3 +1,6 @@
+#!/usr/env/bin Python 3
+#-*- coding: utf-8 -*-
+"""
 # attendee_profile.py
 from datetime import datetime
 import os
@@ -191,3 +194,4 @@ def attendee_change_password():
     )
     flash("Password changed successfully.", "success")
     return redirect(url_for("attendee.attendee_profile"))
+
