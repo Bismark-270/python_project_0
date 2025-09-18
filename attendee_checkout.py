@@ -1,3 +1,6 @@
+#!/usr/env/bin Python 3
+#-*- coding: utf-8 -*-
+"""
 # attendee_checkout.py
 import os
 from datetime import datetime, timezone
@@ -430,3 +433,4 @@ def complete():
         "payment_id": payment_id,
         "base_payment_id": base_payment_id or None
     })
+
