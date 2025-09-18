@@ -1,3 +1,6 @@
+#!/usr/env/bin Python 3
+#-*- coding: utf-8 -*-
+"""
 # attendee_tickets.py
 from datetime import datetime, timedelta, timezone
 from bson import ObjectId
@@ -147,3 +150,4 @@ def my_tickets():
                            upcoming=upcoming,
                            past=past,
                            q=q)
+
