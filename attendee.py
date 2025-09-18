@@ -1,3 +1,6 @@
+#!/usr/env/bin Python 3
+#-*- coding: utf-8 -*-
+"""
 # attendee.py
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request
@@ -264,3 +267,4 @@ def my_tickets():
                            upcoming=upcoming,
                            past=past,
                            q=q)
+
